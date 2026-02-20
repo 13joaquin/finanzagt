@@ -1,8 +1,8 @@
 /*import 'dart:ffi';*/
 /*import 'dart:ui';*/
 
+import 'package:finanzagt/screens/dashboard_screen.dart';
 import 'package:flutter/material.dart';
-
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A4D68)),
         useMaterial3: true
       ),
-      home:  MainMenuScreen(),
+      home:  /*MainMenuScreen()*/ MainDashboardScreen(),
     );
   }
 }
