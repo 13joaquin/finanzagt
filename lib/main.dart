@@ -1,5 +1,5 @@
 /*import 'dart:ffi';*/
-import 'dart:ui';
+/*import 'dart:ui';*/
 
 import 'package:flutter/material.dart';
 
@@ -16,15 +16,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Finanzas GT',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A4D68)),
+        useMaterial3: true
       ),
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World'),
-        ),
-      ),
+      home:  MainMenuScreen(),
     );
   }
 }
@@ -59,7 +56,7 @@ class MainMenuScreen extends StatelessWidget {
                           fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                     Text(
-                      '3,450 .00',
+                      'Q3,450 .00',
                       style: GoogleFonts.inter(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -82,13 +79,24 @@ class MainMenuScreen extends StatelessWidget {
                       icon: Icons.add_circle_outline,
                       label: "Registrar Gasto",
                       color: Colors.redAccent,
-                      onTop: () => print("Ir a registro"),
+                      onTap: () => print("Ir a registro"),
                   ),
                   _buildMenuCard(
-                      icon: Icons.add_circle_outline,
+                      icon: Icons.account_balance_wallet_outlined,
                       label: "Presupuesto",
                       color: primaryColor,
-                      onTop: (){})
+                      onTap: (){}
+                  ),
+                  _buildMenuCard(
+                      icon: Icons.bar_chart_rounded,
+                      label: "Reportes",
+                      color: Colors.orangeAccent,
+                      onTap: (){}),
+                  _buildMenuCard(
+                      icon: Icons.school_outlined,
+                      label: "Aprende",
+                      color: Colors.purpleAccent,
+                      onTap: (){}),
                 ],
               ),
             ),
@@ -107,7 +115,7 @@ class MainMenuScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        "",
+                        "Tip: La regla 50/30/20 puede ayudarte a ordenar tus gastos fijos este mes.",
                         style: GoogleFonts.inter(
                             fontSize: 12, color: Colors.grey[500]),
                       ),
@@ -131,11 +139,11 @@ class MainMenuScreen extends StatelessWidget {
     required IconData icon,
     required String label,
     required Color color,
-    required VoidCallback onTop,
+    required VoidCallback onTap,
     bool isEducation = false,
 }){
   return InkWell(
-    onTap: onTop,
+    onTap: onTap,
     child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
