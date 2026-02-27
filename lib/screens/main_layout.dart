@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import 'add_transaction_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -41,7 +42,7 @@ class _MainLayotSreenState extends State<MainLayoutScreen> {
       ),
 
       //Acopla el boton flotante al centro de la barra inferior
-
+        
       // Barra de navegación inferior
         bottomNavigationBar: BottomAppBar(
           shape: const CircularNotchedRectangle(), //Hace el hueco para el boton
