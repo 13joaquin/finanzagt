@@ -34,7 +34,13 @@ class _MainLayotSreenState extends State<MainLayoutScreen> {
       //Boton flotante central
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          debugPrint("Abrir regisro de transacción");
+          showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => const AddTransactionScreen(),
+          );
+          //debugPrint("Abrir regisro de transacción");
         },
         backgroundColor: primaryColor,
         shape: const CircleBorder(),
@@ -42,7 +48,8 @@ class _MainLayotSreenState extends State<MainLayoutScreen> {
       ),
 
       //Acopla el boton flotante al centro de la barra inferior
-        
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
       // Barra de navegación inferior
         bottomNavigationBar: BottomAppBar(
           shape: const CircularNotchedRectangle(), //Hace el hueco para el boton
@@ -50,19 +57,18 @@ class _MainLayotSreenState extends State<MainLayoutScreen> {
           color: Colors.white,
           child: SizedBox(
             height: 60,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(icon: Icons.grid_view_rounded, label: 'Inicio', index: 0),
-                _buildNavItem(icon: Icons.pie_chart_outline, label: 'Presupuesto', index: 1),
-                const SizedBox(width: 40),
-                _buildNavItem(icon: Icons.menu_book_rounded, label: 'Educación', index: 2),
-                _buildNavItem(icon: Icons.eco_outlined, label: 'Santuario', index: 3),
-              ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                  _buildNavItem(icon: Icons.grid_view_rounded, label: 'Inicio', index: 0),
+                  _buildNavItem(icon: Icons.pie_chart_outline, label: 'Presupuesto', index: 1),
+                  const SizedBox(width: 40),
+                  _buildNavItem(icon: Icons.menu_book_rounded, label: 'Educación', index: 2),
+                  _buildNavItem(icon: Icons.eco_outlined, label: 'Santuario', index: 3),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-
     );
   }
 
