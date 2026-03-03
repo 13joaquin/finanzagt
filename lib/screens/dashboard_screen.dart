@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_screen.dart';
 
 class MainDashboardScreen extends StatelessWidget {
   const MainDashboardScreen({super.key});
@@ -37,10 +38,17 @@ class MainDashboardScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=11'), // Imagen de prueba
+                    GestureDetector(
+                      onTap: (){
+                        //Navega hacia la pantalla de perfil con una animacion por defecto
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                        );
+                      },
+                      child: const CircleAvatar(
+                        radius: 24,
+                        backgroundImage: NetworkImage(
+                            'https://i.pravatar.cc/150?img=11'), // Imagen de prueba
+                      ),
                     ),
                   ],
                 ),
