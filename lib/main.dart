@@ -1,12 +1,21 @@
 /*import 'dart:ffi';*/
 /*import 'dart:ui';*/
-
-import 'package:finanzagt/screens/main_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:finanzagt/screens/main_layout.dart';
 
-void main() {
+
+void main() async {
+  // Asegurar que los widget esten listos antes de inicializar Firebase
+  WidgetsFlutterBinding.ensureInitialized();
+
+  //Inicializamos Firebase con la configuracion de tu CLI
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 
