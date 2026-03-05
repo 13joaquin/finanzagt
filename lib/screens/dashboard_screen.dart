@@ -84,9 +84,11 @@ class MainDashboardScreen extends StatelessWidget {
 
                       // 4. ¡DATOS RECIBIDOS! Los extraemos
                       var data = snapshot.data!.data() as Map<String, dynamic>;
-                      // Convertimos a double por seguridad, manejando enteros o decimales
                       double safeBalance = (data['safe_balance'] ?? 0).toDouble();
                       double netWorth = (data['net_worth'] ?? 0).toDouble();
+
+                      // LÓGICA DE COLOR CONDICIONAL: Verde si es >= 0, Rojo si es negativo
+                      Color dynamicBalanceColor = safeBalance >= 0 ? const Color(0xFF2E7D32) : Colors.redAccent;
 
                       // 5. Retornamos tu diseño visual, pero con variables reales
                       return Container(
@@ -104,12 +106,12 @@ class MainDashboardScreen extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
-                            //Panel Morado (Seguro para gastar)
+                            //Panel Dinamico (Seguro para gastar)
                             Expanded(
                               child: Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: purpleColor,
+                                  color: dynamicBalanceColor, // APLICAMOS EL COLOR DINÁMICO AQUÍ
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Column(
@@ -303,12 +305,7 @@ class MainDashboardScreen extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 80), // Espacio final para que el FAB no tape el último elemento
-                /*//Aqui irian tus transaciones (ej: Mercadona, Spotify)
-                Center(child: Text("Lista de transacciones aqui",
-                    style: TextStyle(color: Colors.grey))),
-
-                const SizedBox(height: 60),*/
+                const SizedBox(height: 80),
               ],
             ),
           ),

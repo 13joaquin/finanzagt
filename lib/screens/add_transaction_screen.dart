@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // IMPORTANTE AÑADIR ESTO
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -8,21 +9,91 @@ class AddTransactionScreen extends StatefulWidget {
 }
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
-  // Estado para controlar si es Gasto (true) o Ingreso (false)
-  bool _isExpense = true;
-  String _selectedCategory = 'Comida'; // Categoría por defecto
+  // Controladores para capturar lo que el usuario escribe
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
 
-  // Lista temporal de categorías (luego vendrán de Firebase)
+  bool _isExpense = true;
+  String _selectedCategory = 'Comida';
+  bool _isLoading = false; // Para mostrar un circulo de carga al guardar
+
   final List<String> _expenseCategories = ['Comida', 'Transporte', 'Servicios', 'Ocio', 'Salud'];
   final List<String> _incomeCategories = ['Salario', 'Negocio', 'Inversión', 'Regalo', 'Otros'];
 
+  // --- LÓGICA CORE DE FINANZAS ---
+  Future<void> _saveTransaction() async {
+    // 1. Validar que no esté vacío
+    if (_amountController.text.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 2. Convertir el texto a número decimal
+      double amount = double.parse(_amountController.text.replaceAll(',', '.'));
+      String note = _noteController.text.isEmpty ? _selectedCategory : _noteController.text;
+
+      // 3. Referencias a Firebase
+      final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
+      final newTransactionRef = userRef.collection('transactions').doc(); // Genera un ID único
+
+      // 4. Ejecutar la transacción en Firestore (Garantiza que el saldo y el registro se guarden juntos)
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        // Leer el saldo actual
+        DocumentSnapshot userSnapshot = await transaction.get(userRef);
+        if (!userSnapshot.exists) {
+          throw Exception("El usuario no existe");
+        }
+
+        double currentSafeBalance = (userSnapshot.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
+
+        // Calcular el nuevo saldo
+        double newSafeBalance = _isExpense ? (currentSafeBalance - amount) : (currentSafeBalance + amount);
+
+        // Guardar el recibo en la lista de transacciones
+        transaction.set(newTransactionRef, {
+          'title': note, // Usamos la nota o la categoría como título
+          'category': _selectedCategory,
+          'amount': amount,
+          'is_expense': _isExpense,
+          'date': FieldValue.serverTimestamp(), // Fecha y hora exacta del servidor
+        });
+
+        // Actualizar el saldo total del usuario
+        transaction.update(userRef, {'safe_balance': newSafeBalance});
+      });
+
+      // 5. Cerrar la pantalla si todo salió bien
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint("Error guardando transacción: $e");
+      // Aquí se podría mostrar un SnackBar (alerta) de error en el futuro
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    // Limpiar memoria
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme.of(context).colorScheme.primary;
-    final Color activeColor = _isExpense ? Colors.redAccent : const Color(0xFF2E7D32); // Rojo para gasto, Verde para ingreso
+    final Color activeColor = _isExpense ? Colors.redAccent : const Color(0xFF2E7D32);
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85, // Ocupa el 85% de la pantalla
+      height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -35,30 +106,20 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Barra indicadora de arrastre y Título
             Center(
               child: Container(
                 width: 40,
                 height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Nueva Transacción',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]),
-            ),
+            Text('Nueva Transacción', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
             const SizedBox(height: 20),
 
-            // 2. Selector (Toggle) Gasto / Ingreso
+            // Selector Gasto / Ingreso
             Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
                   Expanded(
@@ -74,9 +135,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: _isExpense ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : [],
                         ),
-                        child: Center(
-                          child: Text('Gasto', style: TextStyle(fontWeight: FontWeight.bold, color: _isExpense ? Colors.redAccent : Colors.grey)),
-                        ),
+                        child: Center(child: Text('Gasto', style: TextStyle(fontWeight: FontWeight.bold, color: _isExpense ? Colors.redAccent : Colors.grey))),
                       ),
                     ),
                   ),
@@ -93,9 +152,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: !_isExpense ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : [],
                         ),
-                        child: Center(
-                          child: Text('Ingreso', style: TextStyle(fontWeight: FontWeight.bold, color: !_isExpense ? const Color(0xFF2E7D32) : Colors.grey)),
-                        ),
+                        child: Center(child: Text('Ingreso', style: TextStyle(fontWeight: FontWeight.bold, color: !_isExpense ? const Color(0xFF2E7D32) : Colors.grey))),
                       ),
                     ),
                   ),
@@ -104,14 +161,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ),
             const SizedBox(height: 30),
 
-            // 3. Input de Cantidad (Monto)
-            Text('Monto', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+            // Input de Cantidad (Monto) CON CONTROLADOR
+            Text('Monto (Q)', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text('Q ', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: activeColor)),
                 Expanded(
                   child: TextField(
+                    controller: _amountController, // Conectado al controlador
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: activeColor),
                     decoration: InputDecoration(
@@ -126,7 +184,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const Divider(),
             const SizedBox(height: 20),
 
-            // 4. Selector de Categorías (Chips)
+            // Selector de Categorías (Chips)
             Text('Categoría', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
             const SizedBox(height: 10),
             Wrap(
@@ -157,10 +215,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 5. Nota opcional
+            // Descripción / Comercio CON CONTROLADOR
             TextField(
+              controller: _noteController, // Conectado al controlador
               decoration: InputDecoration(
-                hintText: 'Añadir una nota (opcional)...',
+                hintText: 'Descripción / Comercio (ej. Starbucks)...',
                 prefixIcon: const Icon(Icons.notes, color: Colors.grey),
                 filled: true,
                 fillColor: Colors.grey[100],
@@ -171,23 +230,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
             ),
 
-            const Spacer(), // Empuja el botón hacia abajo
+            const Spacer(),
 
-            // 6. Botón de Guardar
+            // Botón de Guardar
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
-                onPressed: () {
-                  // AQUI IRÁ LA LÓGICA DE FIREBASE MÁS ADELANTE
-                  Navigator.pop(context); // Cierra el modal por ahora
-                },
+                // Si está cargando, desactivamos el botón
+                onPressed: _isLoading ? null : _saveTransaction,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: activeColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
-                child: const Text(
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
                   'Guardar Transacción',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
