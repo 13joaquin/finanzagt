@@ -19,6 +19,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   String _selectedFilterCategory = 'Todas';
   final NumberFormat currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
+  // 1. AGREGA ESTA LÍNEA (El cerebro de la barra de búsqueda)
+  final TextEditingController _searchController = TextEditingController();
+
+  //2. AGREGA ESTE BLOQUE para limpiar la memoria cuando cierres la app
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   // Función para eliminar transacciones y devolver el saldo al usuario
   Future<void> _deleteTransaction(String docId, double amount, bool isExpense) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
@@ -175,8 +185,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                             Expanded(
                               flex: 3,
                               child: TextField(
+                                controller: _searchController, // <- AGREGA ESTA LÍNEA AQUÍ
                                 onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                                decoration: InputDecoration(hintText: 'Buscar...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                                decoration: InputDecoration(
+                                    hintText: 'Buscar...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    filled: true,
+                                    fillColor: Colors.grey[100],
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
                               ),
                             ),
                             const SizedBox(width: 8),
