@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:currency_text_input_formatter/currency_text_input_formatter.dart'; // NUEVO
+import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
+import 'package:intl/intl.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key});
+  final String? editDocId;
+  final Map<String, dynamic>? editData;
+
+  const AddTransactionScreen({super.key, this.editDocId, this.editData});
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -11,184 +15,157 @@ class AddTransactionScreen extends StatefulWidget {
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final TextEditingController _noteController = TextEditingController();
-
-  // NUEVO: Formateador que agrega comas automáticamente (ej: 1,000.00)
-  final CurrencyTextInputFormatter _amountFormatter = CurrencyTextInputFormatter.currency(
-    symbol: '', // Sin símbolo aquí porque ya lo tenemos dibujado fuera del input
-    decimalDigits: 2,
-  );
+  final TextEditingController _amountController = TextEditingController(); // Controlador separado para el monto
+  final CurrencyTextInputFormatter _amountFormatter = CurrencyTextInputFormatter.currency(symbol: '', decimalDigits: 2);
 
   bool _isExpense = true;
-  String _selectedCategory = 'Comida';
+  String? _selectedCategory;
   bool _isLoading = false;
+  DateTime _selectedDate = DateTime.now();
 
-  final List<String> _expenseCategories = ['Comida', 'Transporte', 'Servicios', 'Ocio', 'Salud'];
-  final List<String> _incomeCategories = ['Salario', 'Negocio', 'Inversión', 'Regalo', 'Otros'];
+  List<String> _expenseCategories = ['Comida', 'Transporte', 'Vivienda'];
+  List<String> _incomeCategories = ['Salario', 'Ventas', 'Otros'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserCategories();
+
+    if (widget.editDocId != null && widget.editData != null) {
+      _isExpense = widget.editData!['is_expense'];
+      _selectedCategory = widget.editData!['category'];
+      _noteController.text = widget.editData!['title'];
+
+      // SOLUCIÓN AL ERROR: Formateamos el monto inicial y lo ponemos en el controlador
+      double initialAmount = (widget.editData!['amount'] ?? 0).toDouble();
+      _amountController.text = _amountFormatter.formatDouble(initialAmount);
+
+      _selectedDate = (widget.editData!['date'] as Timestamp).toDate();
+    }
+  }
+
+  Future<void> _loadUserCategories() async {
+    var snapshot = await FirebaseFirestore.instance.collection('users').doc('test_user_123').get();
+    if (snapshot.exists) {
+      var data = snapshot.data()!;
+      setState(() {
+        _expenseCategories = List<String>.from(data['expense_categories'] ?? _expenseCategories);
+        _incomeCategories = List<String>.from(data['income_categories'] ?? _incomeCategories);
+        if (_selectedCategory == null) {
+          _selectedCategory = _isExpense ? _expenseCategories.first : _incomeCategories.first;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickDate() async {
+    DateTime? picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2100));
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
 
   Future<void> _saveTransaction() async {
-    // Obtenemos el valor real sin comas para la base de datos
     double amount = _amountFormatter.getUnformattedValue().toDouble();
     if (amount <= 0) return;
 
-    setState(() { _isLoading = true; });
+    setState(() => _isLoading = true);
+    final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
 
     try {
-      String note = _noteController.text.isEmpty ? _selectedCategory : _noteController.text;
-      final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
-      final newTransactionRef = userRef.collection('transactions').doc();
-
       await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentSnapshot userSnapshot = await transaction.get(userRef);
-        if (!userSnapshot.exists) throw Exception("Usuario no encontrado.");
+        DocumentSnapshot userSnap = await transaction.get(userRef);
+        double balance = (userSnap.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
 
-        double currentSafeBalance = (userSnapshot.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
-        double newSafeBalance = _isExpense ? (currentSafeBalance - amount) : (currentSafeBalance + amount);
+        if (widget.editDocId != null) {
+          // Revertir anterior
+          double oldAmt = (widget.editData!['amount'] ?? 0).toDouble();
+          balance = widget.editData!['is_expense'] ? (balance + oldAmt) : (balance - oldAmt);
+        }
 
-        transaction.set(newTransactionRef, {
-          'title': note,
+        // Aplicar nuevo
+        balance = _isExpense ? (balance - amount) : (balance + amount);
+
+        var transRef = widget.editDocId != null
+            ? userRef.collection('transactions').doc(widget.editDocId)
+            : userRef.collection('transactions').doc();
+
+        transaction.set(transRef, {
+          'title': _noteController.text.isEmpty ? _selectedCategory : _noteController.text,
           'category': _selectedCategory,
           'amount': amount,
           'is_expense': _isExpense,
-          'date': FieldValue.serverTimestamp(),
+          'date': Timestamp.fromDate(_selectedDate),
         });
-
-        transaction.update(userRef, {'safe_balance': newSafeBalance});
+        transaction.update(userRef, {'safe_balance': balance});
       });
-
       if (mounted) Navigator.pop(context);
     } catch (e) {
       debugPrint("Error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fallo al guardar: $e'), backgroundColor: Colors.redAccent));
-      }
     } finally {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final Color activeColor = _isExpense ? Colors.redAccent : const Color(0xFF2E7D32);
+    final activeColor = _isExpense ? Colors.redAccent : const Color(0xFF2E7D32);
 
     return Container(
+      padding: const EdgeInsets.all(24),
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
-            const SizedBox(height: 20),
-            Text('Nueva Transacción', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
-            const SizedBox(height: 20),
-
-            // Selector Gasto / Ingreso
-            Container(
-              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() { _isExpense = true; _selectedCategory = _expenseCategories.first; }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: _isExpense ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(12), boxShadow: _isExpense ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : []),
-                        child: Center(child: Text('Gasto', style: TextStyle(fontWeight: FontWeight.bold, color: _isExpense ? Colors.redAccent : Colors.grey))),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() { _isExpense = false; _selectedCategory = _incomeCategories.first; }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: !_isExpense ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(12), boxShadow: !_isExpense ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : []),
-                        child: Center(child: Text('Ingreso', style: TextStyle(fontWeight: FontWeight.bold, color: !_isExpense ? const Color(0xFF2E7D32) : Colors.grey))),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.editDocId != null ? 'Editar' : 'Nuevo', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          // Switch Gasto/Ingreso
+          Row(
+            children: [
+              Expanded(child: ChoiceChip(label: const Text("Gasto"), selected: _isExpense, onSelected: (s) => setState(() => _isExpense = true))),
+              const SizedBox(width: 10),
+              Expanded(child: ChoiceChip(label: const Text("Ingreso"), selected: !_isExpense, onSelected: (s) => setState(() => _isExpense = false))),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Monto con el formateador corregido
+          TextField(
+            controller: _amountController,
+            inputFormatters: [_amountFormatter],
+            keyboardType: TextInputType.number,
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: activeColor),
+            decoration: const InputDecoration(prefixText: 'Q ', border: InputBorder.none),
+          ),
+          const SizedBox(height: 10),
+          // Categorías dinámicas
+          Wrap(
+            spacing: 8,
+            children: (_isExpense ? _expenseCategories : _incomeCategories).map((c) => ChoiceChip(
+              label: Text(c),
+              selected: _selectedCategory == c,
+              onSelected: (s) => setState(() => _selectedCategory = c),
+            )).toList(),
+          ),
+          const SizedBox(height: 20),
+          TextField(controller: _noteController, decoration: const InputDecoration(hintText: 'Descripción', prefixIcon: Icon(Icons.edit))),
+          const SizedBox(height: 15),
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+            onTap: _pickDate,
+            tileColor: Colors.grey[100],
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: activeColor),
+              onPressed: _isLoading ? null : _saveTransaction,
+              child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Guardar", style: TextStyle(color: Colors.white)),
             ),
-            const SizedBox(height: 30),
-
-            // Input de Cantidad (AHORA CON FORMATO AUTOMÁTICO)
-            Text('Monto (Q)', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text('Q ', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: activeColor)),
-                Expanded(
-                  child: TextField(
-                    inputFormatters: [_amountFormatter], // APLICA LAS COMAS AUTOMÁTICAS
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: activeColor),
-                    decoration: InputDecoration(
-                      hintText: '0.00',
-                      hintStyle: TextStyle(color: activeColor.withValues(alpha: 0.3)),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(),
-            const SizedBox(height: 20),
-
-            // Selector de Categorías
-            Text('Categoría', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10, runSpacing: 10,
-              children: (_isExpense ? _expenseCategories : _incomeCategories).map((category) {
-                final isSelected = _selectedCategory == category;
-                return ChoiceChip(
-                  label: Text(category),
-                  selected: isSelected,
-                  selectedColor: activeColor.withValues(alpha: 0.1),
-                  labelStyle: TextStyle(color: isSelected ? activeColor : Colors.grey[700], fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-                  backgroundColor: Colors.grey[100],
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? activeColor.withValues(alpha: 0.5) : Colors.transparent)),
-                  onSelected: (selected) => setState(() => _selectedCategory = category),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-
-            // Descripción
-            TextField(
-              controller: _noteController,
-              decoration: InputDecoration(
-                hintText: 'Descripción / Comercio...',
-                prefixIcon: const Icon(Icons.notes, color: Colors.grey),
-                filled: true, fillColor: Colors.grey[100],
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            const Spacer(),
-
-            // Botón
-            SizedBox(
-              width: double.infinity, height: 55,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _saveTransaction,
-                style: ElevatedButton.styleFrom(backgroundColor: activeColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Guardar Transacción', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          )
+        ],
       ),
     );
   }
