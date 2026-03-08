@@ -231,37 +231,54 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                             bool isExp = data['is_expense'] ?? true;
                             String dateStr = data['date'] != null ? DateFormat('dd/MM').format((data['date'] as Timestamp).toDate()) : '';
 
-                            return Slidable(
-                              key: ValueKey(doc.id),
-                              endActionPane: ActionPane(
-                                motion: const DrawerMotion(),
-                                children: [
-                                  SlidableAction(
-                                    onPressed: (_) => showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      builder: (context) => AddTransactionScreen(editDocId: doc.id, editData: data),
-                                    ),
-                                    backgroundColor: Colors.blue,
-                                    icon: Icons.edit,
-                                    label: 'Editar',
+                            return Padding(
+                                padding: const EdgeInsets.only(bottom: 10.0),
+                                child: Slidable(
+                                  key: ValueKey(doc.id), // Clave única necesaria para que Slidable funcione
+                                  // Panel que aparece al deslizar hacia la DERECHA (Editar)
+                                  startActionPane: ActionPane(
+                                    motion: const DrawerMotion(),
+                                    children: [
+                                      SlidableAction(
+                                        onPressed: (_) {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (context) => AddTransactionScreen(editDocId: doc.id, editData: data),
+                                          );
+                                        },
+                                        backgroundColor: Colors.blueAccent,
+                                        foregroundColor: Colors.white,
+                                        icon: Icons.edit,
+                                        label: 'Editar',
+                                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), bottomLeft: Radius.circular(15)),
+                                      ),
+                                    ],
                                   ),
-                                  SlidableAction(
-                                    onPressed: (_) => _deleteTransaction(doc.id, amt, isExp),
-                                    backgroundColor: Colors.red,
-                                    icon: Icons.delete,
-                                    label: 'Borrar',
+                                  // Panel que aparece al deslizar hacia la IZQUIERDA (Borrar)
+                                  endActionPane: ActionPane(
+                                    motion: const DrawerMotion(),
+                                    children: [
+                                      SlidableAction(
+                                        onPressed: (_) => _deleteTransaction(doc.id, amt, isExp),
+                                        backgroundColor: Colors.redAccent,
+                                        foregroundColor: Colors.white,
+                                        icon: Icons.delete,
+                                        label: 'Borrar',
+                                        borderRadius: const BorderRadius.only(topRight: Radius.circular(15), bottomRight: Radius.circular(15)),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: _buildTransactionItem(
-                                title: data['title'] ?? '',
-                                subtitle: "${data['category']} • $dateStr",
-                                amount: "${isExp ? '-' : '+'}Q${currencyFormat.format(amt)}",
-                                icon: isExp ? Icons.arrow_downward : Icons.arrow_upward,
-                                iconColor: isExp ? Colors.redAccent : greenColor,
-                                isExpense: isExp,
-                              ),
+                                  child: _buildTransactionItem(
+                                    title: data['title'] ?? '',
+                                    subtitle: "${data['category']} • $dateStr",
+                                    amount: "${isExp ? '-' : '+'}Q${currencyFormat.format(amt)}",
+                                    icon: isExp ? Icons.arrow_outward_rounded : Icons.call_received_rounded,
+                                    iconColor: isExp ? Colors.redAccent : greenColor,
+                                    isExpense: isExp,
+                                  ),
+                                ),
                             );
                           },
                         ),
