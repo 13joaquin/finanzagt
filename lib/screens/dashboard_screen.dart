@@ -6,6 +6,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'profile_screen.dart';
 import 'manage_categories_screen.dart';
 import 'add_transaction_screen.dart';
+import 'budget_screen.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});
@@ -77,7 +78,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
-                      child: const CircleAvatar(radius: 24, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11')),
+                      child: CircleAvatar(radius: 24,backgroundColor: Colors.grey[200], child: Icon(Icons.person, color: Colors.grey[600], size: 30,),
+                      ),
                     ),
                   ],
                 ),
@@ -125,6 +127,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       );
                     }
                 ),
+                
                 const SizedBox(height: 25),
 
                 // 3. SECCIÓN DE GRÁFICA Y ACTIVIDAD (TODO EN UN STREAM)
