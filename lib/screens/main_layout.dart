@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart';
-import 'add_transaction_screen.dart';
-import 'budget_screen.dart'; // NUEVA IMPORTACIÓN
+import 'dashboard/dashboard_screen.dart';
+import 'transactions/add_transaction_screen.dart';
+import 'budget_and_goals/budget_screen.dart'; // NUEVA IMPORTACIÓN
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});

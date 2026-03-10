@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'profile_screen.dart';
-import 'manage_categories_screen.dart';
-import 'add_transaction_screen.dart';
-import 'budget_screen.dart';
+import '../profile/profile_screen.dart';
+import '../transactions/manage_categories_screen.dart';
+import '../transactions/add_transaction_screen.dart';
+import '../budget_and_goals/budget_screen.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});
