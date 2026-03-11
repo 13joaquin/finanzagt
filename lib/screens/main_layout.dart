@@ -1,3 +1,4 @@
+import 'package:finanzagt/screens/sanctuary/sanctuary_screen.dart';
 import 'package:flutter/material.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'transactions/add_transaction_screen.dart';
@@ -19,7 +20,7 @@ class _MainLayotSreenState extends State<MainLayoutScreen> {
     const MainDashboardScreen(), // 0: Inicio (Dashboard)
     const BudgetScreen(),        // 1: Presupuesto (¡CONECTADO AL MENÚ!)
     const EducationScreen(), // 2: Educación
-    const Center(child: Text("Pantalla de Santuario")), // 3: Santuario
+    const SanctuaryScreen(), // 3: Santuario
   ];
 
   @override

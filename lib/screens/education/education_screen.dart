@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'lesson/lesson_50_30_20_screen.dart';
 
 class EducationScreen extends StatelessWidget {
   const EducationScreen({super.key});
@@ -44,6 +45,7 @@ class EducationScreen extends StatelessWidget {
               description: 'El método definitivo para organizar tu presupuesto mensual.',
               icon: Icons.pie_chart_rounded,
               color: Colors.blue,
+
             ),
             const SizedBox(height: 15),
 
@@ -62,6 +64,7 @@ class EducationScreen extends StatelessWidget {
               description: 'Págate a ti mismo primero sin tener que pensarlo.',
               icon: Icons.autorenew_rounded,
               color: Colors.purple,
+
             ),
             const SizedBox(height: 15),
 
@@ -87,11 +90,13 @@ class EducationScreen extends StatelessWidget {
     required String description,
     required IconData icon,
     required Color color,
+
   }) {
     return InkWell(
       onTap: () {
         // AQUÍ IRÁ LA NAVEGACIÓN A LAS PANTALLAS DE LECTURA MÁS ADELANTE
-        debugPrint("Abrir lección: $title");
+        //debugPrint("Abrir lección: $title");
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const Lesson503020Screen()));
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
