@@ -6,7 +6,6 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../profile/profile_screen.dart';
 import '../transactions/manage_categories_screen.dart';
 import '../transactions/add_transaction_screen.dart';
-import '../budget_and_goals/budget_screen.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});

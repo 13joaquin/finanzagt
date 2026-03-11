@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'transactions/add_transaction_screen.dart';
-import 'budget_and_goals/budget_screen.dart'; // NUEVA IMPORTACIÓN
+import 'budget_and_goals/budget_screen.dart';
+import 'education/education_screen.dart';// NUEVA IMPORTACIÓN
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -17,7 +18,7 @@ class _MainLayotSreenState extends State<MainLayoutScreen> {
   final List<Widget> _screens = [
     const MainDashboardScreen(), // 0: Inicio (Dashboard)
     const BudgetScreen(),        // 1: Presupuesto (¡CONECTADO AL MENÚ!)
-    const Center(child: Text("Pantalla de Educación")), // 2: Educación
+    const EducationScreen(), // 2: Educación
     const Center(child: Text("Pantalla de Santuario")), // 3: Santuario
   ];
 

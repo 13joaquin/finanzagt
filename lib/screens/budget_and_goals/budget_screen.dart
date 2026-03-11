@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'savings_goals_screen.dart'; // IMPORTACIÓN AGREGADA PARA SOLUCIONAR EL ERROR
+import 'fixed_expenses_screen.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -30,11 +31,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 subtitle: 'Facturas, alquiler, servicios',
                 icon: Icons.home_rounded,
                 color: Colors.blue,
-                spent: 2500,
+                spent: 2500, // Estos números luego los volveremos dinámicos
                 total: 3000,
                 actionLabel: 'Ver Facturas',
                 onTap: () {
-                  // Futura conexión para Gastos Fijos
+                  // AQUÍ CONECTAMOS LA PANTALLA
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const FixedExpensesScreen()));
                 }
             ),
             const SizedBox(height: 20),
