@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:intl/intl.dart';
+import '../../data/repositories/transaction_repository.dart';
+import '../../data/models/transaction_model.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String? editDocId;
@@ -64,44 +66,49 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _saveTransaction() async {
-    double amount = _amountFormatter.getUnformattedValue().toDouble();
-    if (amount <= 0) return;
+    double amount = double.tryParse(_amountFormatter.getUnformattedValue().toString()) ?? 0.0;
 
-    setState(() => _isLoading = true);
-    final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
+    // Validaciones básicas
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ingresa un monto válido')));
+      return;
+    }
+    if (_selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona una categoría')));
+      return;
+    }
+
+    setState(() { _isLoading = true; });
 
     try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentSnapshot userSnap = await transaction.get(userRef);
-        double balance = (userSnap.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
+      // A. Instanciamos nuestro repositorio (El "Cerebro")
+      final repository = TransactionRepository();
 
-        if (widget.editDocId != null) {
-          // Revertir anterior
-          double oldAmt = (widget.editData!['amount'] ?? 0).toDouble();
-          balance = widget.editData!['is_expense'] ? (balance + oldAmt) : (balance - oldAmt);
-        }
+      // B. Empaquetamos los datos visuales en nuestro Modelo estructurado
+      final newTransaction = TransactionModel(
+        id: '', // El repositorio se encargará de asignarle el ID de Firebase
+        amount: amount,
+        type: _isExpense ? 'expense' : 'income',
+        category: _selectedCategory!,
+        merchantName: _noteController.text.isEmpty ? 'General' : _noteController.text,
+        date: _selectedDate,
+      );
 
-        // Aplicar nuevo
-        balance = _isExpense ? (balance - amount) : (balance + amount);
+      // C. ¡Le pasamos el paquete al Repositorio y él hace toda la magia!
+      await repository.addTransaction('test_user_123', newTransaction);
 
-        var transRef = widget.editDocId != null
-            ? userRef.collection('transactions').doc(widget.editDocId)
-            : userRef.collection('transactions').doc();
-
-        transaction.set(transRef, {
-          'title': _noteController.text.isEmpty ? _selectedCategory : _noteController.text,
-          'category': _selectedCategory,
-          'amount': amount,
-          'is_expense': _isExpense,
-          'date': Timestamp.fromDate(_selectedDate),
-        });
-        transaction.update(userRef, {'safe_balance': balance});
-      });
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context); // Cerramos el modal al terminar
+      }
     } catch (e) {
-      debugPrint("Error: $e");
+      debugPrint("Error al guardar: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al procesar la transacción')));
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
     }
   }
 
