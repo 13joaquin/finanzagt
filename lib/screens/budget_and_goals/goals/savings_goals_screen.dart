@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// IMPORTACIONES DE TU NUEVA ARQUITECTURA:
+import '../../../data/models/goal_model.dart';
+import '../../../data/repositories/goal_repository.dart';
+
 class SavingsGoalsScreen extends StatefulWidget {
   const SavingsGoalsScreen({super.key});
 
@@ -13,8 +17,62 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
   final TextEditingController _titleController = TextEditingController();
 
   // ==========================================
-  // LÓGICA 1: CREAR O EDITAR META EN FIREBASE
+  // FUNCIONES LIMPIAS (Llaman al Repositorio)
   // ==========================================
+
+  // A. Guardar Nueva Meta (Limpia)
+  Future<void> _saveNewGoal(String title, double targetAmount) async {
+    try {
+      final repository = GoalRepository();
+
+      final newGoal = GoalModel(
+        id: '', // Firebase le asignará el ID
+        name: title,
+        targetAmount: targetAmount,
+        currentAmount: 0.0,
+        colorHex: '#4CAF50', // Color verde por defecto
+      );
+
+      await repository.createGoal('test_user_123', newGoal);
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Error creando meta: $e");
+    }
+  }
+
+  // B. Abonar Dinero (Limpia)
+  Future<void> _addMoney(String goalId, double amount) async {
+    try {
+      final repository = GoalRepository();
+      await repository.addFundsToGoal('test_user_123', goalId, amount);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Error abonando a la meta: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Verifica tu Saldo Seguro.')));
+      }
+    }
+  }
+
+  // C. Gastar Dinero (Limpia)
+  Future<void> _spendMoney(String goalId, double amount, String reason) async {
+    try {
+      final repository = GoalRepository();
+      await repository.spendFromGoal('test_user_123', goalId, amount, reason);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Error gastando de la meta: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Supera lo ahorrado.')));
+      }
+    }
+  }
+
+  // ==========================================
+  // MODALES (INTERFAZ VISUAL)
+  // ==========================================
+
   void _showGoalFormModal({String? docId, String? currentTitle, double? currentTarget}) {
     if (docId != null) {
       _titleController.text = currentTitle ?? '';
@@ -49,23 +107,17 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                   if (_titleController.text.isEmpty || _amountController.text.isEmpty) return;
                   double target = double.parse(_amountController.text);
 
-                  final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
                   if (docId == null) {
-                    // CREAR
-                    await userRef.collection('goals').add({
-                      'title': _titleController.text,
-                      'target_amount': target,
-                      'saved_amount': 0.0,
-                      'color_code': Colors.blue.value, // Color por defecto
-                    });
+                    // LLAMAMOS A LA FUNCIÓN LIMPIA A QUE CREAMOS ARRIBA
+                    await _saveNewGoal(_titleController.text, target);
                   } else {
-                    // EDITAR
-                    await userRef.collection('goals').doc(docId).update({
+                    // Editar (Se mantiene usando Firestore directo hasta que hagamos el update en el Repo)
+                    await FirebaseFirestore.instance.collection('users').doc('test_user_123').collection('goals').doc(docId).update({
                       'title': _titleController.text,
                       'target_amount': target,
                     });
+                    if (mounted) Navigator.pop(context);
                   }
-                  if (mounted) Navigator.pop(context);
                 },
                 child: Text(docId == null ? 'Guardar Meta' : 'Actualizar Meta', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
@@ -77,9 +129,6 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
     );
   }
 
-  // ==========================================
-  // LÓGICA 2: ABONAR DINERO A LA META (+)
-  // ==========================================
   void _showAddMoneyModal(String docId, String title) {
     _amountController.clear();
     showModalBottomSheet(
@@ -105,30 +154,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                   double amount = double.tryParse(_amountController.text) ?? 0;
                   if (amount <= 0) return;
 
-                  final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
-                  final goalRef = userRef.collection('goals').doc(docId);
-
-                  await FirebaseFirestore.instance.runTransaction((tx) async {
-                    var userSnap = await tx.get(userRef);
-                    var goalSnap = await tx.get(goalRef);
-
-                    double safeBalance = (userSnap.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
-                    double currentSaved = (goalSnap.data() as Map<String, dynamic>)['saved_amount'] ?? 0.0;
-
-                    if (safeBalance < amount) throw Exception("No tienes suficiente Saldo Seguro.");
-
-                    // Actualizamos BD
-                    tx.update(userRef, {'safe_balance': safeBalance - amount});
-                    tx.update(goalRef, {'saved_amount': currentSaved + amount});
-
-                    // Registramos en actividad
-                    tx.set(userRef.collection('transactions').doc(), {
-                      'title': 'Abono a Meta: $title', 'category': 'Ahorro', 'amount': amount, 'is_expense': true, 'date': FieldValue.serverTimestamp()
-                    });
-                  }).catchError((e) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Fondos insuficientes')));
-                  });
-                  if (mounted) Navigator.pop(context);
+                  // LLAMAMOS A LA FUNCIÓN LIMPIA B QUE CREAMOS ARRIBA
+                  await _addMoney(docId, amount);
                 },
                 child: const Text('Confirmar Abono', style: TextStyle(color: Colors.white)),
               ),
@@ -140,9 +167,6 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
     );
   }
 
-  // ==========================================
-  // LÓGICA 3: GASTAR DINERO DE LA META (-)
-  // ==========================================
   void _showSpendMoneyModal(String docId, String title) {
     _amountController.clear();
     showModalBottomSheet(
@@ -168,30 +192,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                   double amount = double.tryParse(_amountController.text) ?? 0;
                   if (amount <= 0) return;
 
-                  final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
-                  final goalRef = userRef.collection('goals').doc(docId);
-
-                  await FirebaseFirestore.instance.runTransaction((tx) async {
-                    var userSnap = await tx.get(userRef);
-                    var goalSnap = await tx.get(goalRef);
-
-                    double netWorth = (userSnap.data() as Map<String, dynamic>)['net_worth'] ?? 0.0;
-                    double currentSaved = (goalSnap.data() as Map<String, dynamic>)['saved_amount'] ?? 0.0;
-
-                    if (currentSaved < amount) throw Exception("No tienes tanto ahorrado.");
-
-                    // Actualizamos BD
-                    tx.update(userRef, {'net_worth': netWorth - amount});
-                    tx.update(goalRef, {'saved_amount': currentSaved - amount});
-
-                    // Registramos en actividad
-                    tx.set(userRef.collection('transactions').doc(), {
-                      'title': 'Gasto de Meta: $title', 'category': 'Gasto de Ahorro', 'amount': amount, 'is_expense': true, 'date': FieldValue.serverTimestamp()
-                    });
-                  }).catchError((e) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Supera lo ahorrado')));
-                  });
-                  if (mounted) Navigator.pop(context);
+                  // LLAMAMOS A LA FUNCIÓN LIMPIA C QUE CREAMOS ARRIBA
+                  await _spendMoney(docId, amount, 'Compra para $title');
                 },
                 child: const Text('Confirmar Gasto', style: TextStyle(color: Colors.white)),
               ),
@@ -203,9 +205,6 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
     );
   }
 
-  // ==========================================
-  // LÓGICA 4: ELIMINAR META (Y DEVOLVER FONDOS)
-  // ==========================================
   Future<void> _deleteGoal(String docId, double savedAmount) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
     await FirebaseFirestore.instance.runTransaction((tx) async {
