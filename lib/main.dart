@@ -1,22 +1,29 @@
-/*import 'dart:ffi';*/
-/*import 'dart:ui';*/
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart'; // 1. Importar Provider
 import 'firebase_options.dart';
+// Importamos el layout principal y nuestro nuevo Provider
 import 'package:finanzagt/screens/main_layout.dart';
-
+import 'providers/user_provider.dart';
 
 void main() async {
-  // Asegurar que los widget esten listos antes de inicializar Firebase
   WidgetsFlutterBinding.ensureInitialized();
 
-  //Inicializamos Firebase con la configuracion de tu CLI
+  // 2. REEMPLAZA LA INICIALIZACIÓN POR ESTA:
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => UserProvider()..listenToUserChanges('test_user_123'),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -25,14 +32,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Finanzas GT',
+      title: 'Finavid',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A4D68)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)), // Verde Finavid
         useMaterial3: true,
-        textTheme: GoogleFonts.interTextTheme(),
       ),
-      home:  MainLayoutScreen() ,
+      home: const MainLayoutScreen(),
     );
   }
 }

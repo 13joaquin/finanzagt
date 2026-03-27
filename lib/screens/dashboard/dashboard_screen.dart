@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:provider/provider.dart'; // 1. IMPORTAMOS PROVIDER
+
+import '../../providers/user_provider.dart'; // 2. IMPORTAMOS TU PROVIDER (ajusta la ruta si es necesario)
 import '../profile/profile_screen.dart';
 import '../transactions/manage_categories_screen.dart';
 import '../transactions/add_transaction_screen.dart';
@@ -18,18 +21,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   String _searchQuery = '';
   String _selectedFilterCategory = 'Todas';
   final NumberFormat currencyFormat = NumberFormat('#,##0.00', 'en_US');
-
-  // 1. AGREGA ESTA LÍNEA (El cerebro de la barra de búsqueda)
   final TextEditingController _searchController = TextEditingController();
 
-  //2. AGREGA ESTE BLOQUE para limpiar la memoria cuando cierres la app
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  // Función para eliminar transacciones y devolver el saldo al usuario
+  // Nota: Esta función de eliminar también la pasaremos al Repositorio más adelante
   Future<void> _deleteTransaction(String docId, double amount, bool isExpense) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
     final transactionRef = userRef.collection('transactions').doc(docId);
@@ -38,12 +38,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot userSnapshot = await transaction.get(userRef);
         double currentSafeBalance = (userSnapshot.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
+        double currentNetWorth = (userSnapshot.data() as Map<String, dynamic>)['net_worth'] ?? 0.0;
 
-        // Revertimos el efecto del monto en el saldo
         double newSafeBalance = isExpense ? (currentSafeBalance + amount) : (currentSafeBalance - amount);
+        double newNetWorth = isExpense ? (currentNetWorth + amount) : (currentNetWorth - amount);
 
         transaction.delete(transactionRef);
-        transaction.update(userRef, {'safe_balance': newSafeBalance});
+        transaction.update(userRef, {'safe_balance': newSafeBalance, 'net_worth': newNetWorth});
       });
     } catch (e) {
       debugPrint("Error al eliminar: $e");
@@ -54,6 +55,18 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Widget build(BuildContext context) {
     final Color purpleColor = const Color(0xFF4A47F6);
     final Color greenColor = const Color(0xFF2E7D32);
+
+    // 3. ¡LA MAGIA DE PROVIDER! Obtenemos el usuario en una sola línea
+    final userProvider = Provider.of<UserProvider>(context);
+    final currentUser = userProvider.currentUser;
+
+    // Si el Provider aún está cargando los datos de Firebase, mostramos un indicador de carga
+    if (currentUser == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -71,65 +84,58 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Hola, Alex', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+                        Text('Hola, ${currentUser.displayName}', // <-- Usamos el nombre del modelo
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
                         Text('Tu panorama financiero hoy', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                       ],
                     ),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
-                      child: CircleAvatar(radius: 24,backgroundColor: Colors.grey[200], child: Icon(Icons.person, color: Colors.grey[600], size: 30,),
-                      ),
+                      child: CircleAvatar(radius: 24, backgroundColor: Colors.grey[200], child: Icon(Icons.person, color: Colors.grey[600], size: 30)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 25),
 
-                // 2. PANELES DE SALDO
-                StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance.collection('users').doc('test_user_123').snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox();
-                      var data = snapshot.data!.data() as Map<String, dynamic>;
-                      double safeBalance = (data['safe_balance'] ?? 0).toDouble();
-                      double netWorth = (data['net_worth'] ?? 0).toDouble();
-
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
-                        child: Row(
+                // 2. PANELES DE SALDO (¡Adiós StreamBuilder!)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: currentUser.safeToSpend >= 0 ? greenColor : Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('SEGURO PARA GASTAR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                              Text('Q${currencyFormat.format(currentUser.safeToSpend)}', // <-- Usamos el Provider
+                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: safeBalance >= 0 ? greenColor : Colors.redAccent, borderRadius: BorderRadius.circular(16)),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('SEGURO PARA GASTAR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    Text('Q${currencyFormat.format(safeBalance)}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('PATRIMONIO NETO', style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)),
-                                  Text('Q${currencyFormat.format(netWorth)}', style: TextStyle(color: Colors.blueGrey[900], fontSize: 18, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
+                            Text('PATRIMONIO NETO', style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text('Q${currencyFormat.format(currentUser.netWorth)}', // <-- Usamos el Provider
+                                style: TextStyle(color: Colors.blueGrey[900], fontSize: 18, fontWeight: FontWeight.bold)),
                           ],
                         ),
-                      );
-                    }
+                      ),
+                    ],
+                  ),
                 ),
-                
+
                 const SizedBox(height: 25),
 
-                // 3. SECCIÓN DE GRÁFICA Y ACTIVIDAD (TODO EN UN STREAM)
+                // 3. SECCIÓN DE GRÁFICA Y ACTIVIDAD
+                // (Este StreamBuilder lo dejaremos por ahora hasta que hagamos el TransactionProvider)
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance.collection('users').doc('test_user_123').collection('transactions').orderBy('date', descending: true).snapshots(),
                   builder: (context, snapshot) {
@@ -149,7 +155,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       if (cat.isNotEmpty && !dynamicCategories.contains(cat)) dynamicCategories.add(cat);
                     }
 
-                    // Filtrado de la lista
                     var filteredDocs = docs.where((doc) {
                       var data = doc.data() as Map<String, dynamic>;
                       bool matchesSearch = (data['title'] ?? '').toString().toLowerCase().contains(_searchQuery);
@@ -181,20 +186,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         Text('Actividad', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
                         const SizedBox(height: 15),
 
-                        // BARRA DE BÚSQUEDA Y FILTRO DE CATEGORÍAS
+                        // BARRA DE BÚSQUEDA Y FILTRO
                         Row(
                           children: [
                             Expanded(
                               flex: 3,
                               child: TextField(
-                                controller: _searchController, // <- AGREGA ESTA LÍNEA AQUÍ
+                                controller: _searchController,
                                 onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                                decoration: InputDecoration(
-                                    hintText: 'Buscar...',
-                                    prefixIcon: const Icon(Icons.search),
-                                    filled: true,
-                                    fillColor: Colors.grey[100],
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                                decoration: InputDecoration(hintText: 'Buscar...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -213,15 +213,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                                 ),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.tune),
-                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen())),
-                            )
                           ],
                         ),
                         const SizedBox(height: 15),
 
-                        // LISTA DE TRANSACCIONES CON SLIDE
+                        // LISTA DE TRANSACCIONES
                         ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -234,53 +230,27 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                             String dateStr = data['date'] != null ? DateFormat('dd/MM').format((data['date'] as Timestamp).toDate()) : '';
 
                             return Padding(
-                                padding: const EdgeInsets.only(bottom: 10.0),
-                                child: Slidable(
-                                  key: ValueKey(doc.id), // Clave única necesaria para que Slidable funcione
-                                  // Panel que aparece al deslizar hacia la DERECHA (Editar)
-                                  startActionPane: ActionPane(
-                                    motion: const DrawerMotion(),
-                                    children: [
-                                      SlidableAction(
-                                        onPressed: (_) {
-                                          showModalBottomSheet(
-                                            context: context,
-                                            isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
-                                            builder: (context) => AddTransactionScreen(editDocId: doc.id, editData: data),
-                                          );
-                                        },
-                                        backgroundColor: Colors.blueAccent,
-                                        foregroundColor: Colors.white,
-                                        icon: Icons.edit,
-                                        label: 'Editar',
-                                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), bottomLeft: Radius.circular(15)),
-                                      ),
-                                    ],
-                                  ),
-                                  // Panel que aparece al deslizar hacia la IZQUIERDA (Borrar)
-                                  endActionPane: ActionPane(
-                                    motion: const DrawerMotion(),
-                                    children: [
-                                      SlidableAction(
-                                        onPressed: (_) => _deleteTransaction(doc.id, amt, isExp),
-                                        backgroundColor: Colors.redAccent,
-                                        foregroundColor: Colors.white,
-                                        icon: Icons.delete,
-                                        label: 'Borrar',
-                                        borderRadius: const BorderRadius.only(topRight: Radius.circular(15), bottomRight: Radius.circular(15)),
-                                      ),
-                                    ],
-                                  ),
-                                  child: _buildTransactionItem(
-                                    title: data['title'] ?? '',
-                                    subtitle: "${data['category']} • $dateStr",
-                                    amount: "${isExp ? '-' : '+'}Q${currencyFormat.format(amt)}",
-                                    icon: isExp ? Icons.arrow_outward_rounded : Icons.call_received_rounded,
-                                    iconColor: isExp ? Colors.redAccent : greenColor,
-                                    isExpense: isExp,
-                                  ),
+                              padding: const EdgeInsets.only(bottom: 10.0),
+                              child: Slidable(
+                                key: ValueKey(doc.id),
+                                endActionPane: ActionPane(
+                                  motion: const DrawerMotion(),
+                                  children: [
+                                    SlidableAction(
+                                      onPressed: (_) => _deleteTransaction(doc.id, amt, isExp),
+                                      backgroundColor: Colors.redAccent, foregroundColor: Colors.white, icon: Icons.delete, label: 'Borrar', borderRadius: const BorderRadius.only(topRight: Radius.circular(15), bottomRight: Radius.circular(15)),
+                                    ),
+                                  ],
                                 ),
+                                child: _buildTransactionItem(
+                                  title: data['title'] ?? '',
+                                  subtitle: "${data['category']} • $dateStr",
+                                  amount: "${isExp ? '-' : '+'}Q${currencyFormat.format(amt)}",
+                                  icon: isExp ? Icons.arrow_outward_rounded : Icons.call_received_rounded,
+                                  iconColor: isExp ? Colors.redAccent : greenColor,
+                                  isExpense: isExp,
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -299,8 +269,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
   Widget _buildTransactionItem({required String title, required String subtitle, required String amount, required IconData icon, required Color iconColor, required bool isExpense}) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10), elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.withOpacity(0.1))),
       child: ListTile(
         leading: CircleAvatar(backgroundColor: iconColor.withOpacity(0.1), child: Icon(icon, color: iconColor, size: 18)),
