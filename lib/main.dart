@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+// 1. Agrega esta importación en la parte superior:
+import 'providers/transaction_provider.dart';
 import 'package:provider/provider.dart'; // 1. Importar Provider
 import 'firebase_options.dart';
 // Importamos el layout principal y nuestro nuevo Provider
@@ -19,6 +21,10 @@ void main() async {
       providers: [
         ChangeNotifierProvider(
           create: (_) => UserProvider()..listenToUserChanges('test_user_123'),
+        ),
+        // ¡NUEVO PROVIDER AGREGADO AQUÍ!
+        ChangeNotifierProvider(
+          create: (_) => TransactionProvider()..listenToTransactions('test_user_123'),
         ),
       ],
       child: const MyApp(),
