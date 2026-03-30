@@ -9,6 +9,9 @@ import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/transaction_provider.dart';
 
+// ¡ESTA ES LA LÍNEA QUE FALTABA! Importamos tu repositorio
+import '../../data/repositories/transaction_repository.dart';
+
 // Importamos pantallas adicionales
 import '../profile/profile_screen.dart';
 
@@ -25,34 +28,38 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final NumberFormat currencyFormat = NumberFormat('#,##0.00', 'en_US');
   final TextEditingController _searchController = TextEditingController();
 
+  // 1. Instanciamos el repositorio al inicio de la clase _MainDashboardScreenState
+  final TransactionRepository _transactionRepo = TransactionRepository();
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  // TODO: Mover esta lógica al TransactionRepository en el siguiente paso
+  // 2. Simplificamos la función de la UI
   Future<void> _deleteTransaction(String docId, double amount, bool isExpense) async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
-    final transactionRef = userRef.collection('transactions').doc(docId);
-
     try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentSnapshot userSnapshot = await transaction.get(userRef);
-        double currentSafeBalance = (userSnapshot.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
-        double currentNetWorth = (userSnapshot.data() as Map<String, dynamic>)['net_worth'] ?? 0.0;
+      // Llamamos al repositorio delegando toda la lógica pesada
+      await _transactionRepo.deleteTransaction(
+        userId: 'test_user_123', // ID de prueba
+        docId: docId,
+        amount: amount,
+        isExpense: isExpense,
+      );
 
-        double newSafeBalance = isExpense ? (currentSafeBalance + amount) : (currentSafeBalance - amount);
-        double newNetWorth = isExpense ? (currentNetWorth + amount) : (currentNetWorth - amount);
-
-        transaction.delete(transactionRef);
-        transaction.update(userRef, {
-          'safe_balance': newSafeBalance,
-          'net_worth': newNetWorth
-        });
-      });
+      // Opcional: Notificación de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transacción eliminada'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
-      debugPrint("Error al eliminar transacción: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al eliminar'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

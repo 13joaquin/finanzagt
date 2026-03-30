@@ -41,4 +41,36 @@ class TransactionRepository {
       });
     });
   }
-}
+
+  // --- NUEVA FUNCIÓN PARA ELIMINAR (AHORA SÍ ESTÁ DENTRO DE LA CLASE) ---
+  Future<void> deleteTransaction({
+    required String userId,
+    required String docId,
+    required double amount,
+    required bool isExpense,
+  }) async {
+    final userRef = _firestore.collection('users').doc(userId);
+    final transactionRef = userRef.collection('transactions').doc(docId);
+
+    // Usamos una transacción atómica para que el borrado y la actualización de saldo
+    // ocurran al mismo tiempo o no ocurra nada (evita descuadres).
+    await _firestore.runTransaction((tx) async {
+      DocumentSnapshot userDoc = await tx.get(userRef);
+      if (!userDoc.exists) return;
+
+      double currentSafe = (userDoc.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
+      double currentNet = (userDoc.data() as Map<String, dynamic>?)?['net_worth']?.toDouble() ?? 0.0;
+
+      // Lógica inversa: Si borramos un gasto, devolvemos el dinero al saldo.
+      // Si borramos un ingreso, restamos ese dinero del saldo.
+      double newSafe = isExpense ? (currentSafe + amount) : (currentSafe - amount);
+      double newNet = isExpense ? (currentNet + amount) : (currentNet - amount);
+
+      tx.delete(transactionRef);
+      tx.update(userRef, {
+        'safe_balance': newSafe,
+        'net_worth': newNet,
+      });
+    });
+  }
+} // <-- ESTA ES LA ÚLTIMA LLAVE QUE CIERRA LA CLASE
