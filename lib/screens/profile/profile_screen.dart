@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+// Importamos el Provider de usuario
+import '../../providers/user_provider.dart';
+// Importamos las pantallas para la navegación
+import '../budget_and_goals/goals/savings_goals_screen.dart';
+import '../transactions/manage_categories_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Usamos el color de fondo consistente con el resto de la app
+    // 1. Escuchamos al UserProvider
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.currentUser;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Mi Perfil', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.blueGrey[900], // Color de la flecha de retroceso y texto
+        foregroundColor: Colors.blueGrey[900],
         centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView( // Añadido por si hay pantallas pequeñas
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // 1 y 2. Contenedor con Imagen, Nombre y Correo
+            // SECCIÓN DE CABECERA (DATOS REALES)
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -27,7 +36,7 @@ class ProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withOpacity(0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -36,9 +45,12 @@ class ProfileScreen extends StatelessWidget {
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 50,
-                      backgroundColor: Colors.grey[200],
-                      child: Icon(Icons.person, color: Colors.grey[600], size: 60),
+                    radius: 40,
+                    backgroundColor: const Color(0xFF4A47F6).withOpacity(0.1),
+                    child: Text(
+                      user?.displayName?.substring(0, 1).toUpperCase() ?? "U",
+                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF4A47F6)),
+                    ),
                   ),
                   const SizedBox(width: 20),
                   Expanded(
@@ -46,87 +58,124 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Alex', // Nombre del usuario
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]),
+                          user?.displayName ?? 'Cargando...',
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 4),
                         Text(
-                          'alex@ejemplo.com.gt', // Correo con dominio de Guatemala como ejemplo
-                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                          user?.email ?? 'usuario@finavid.gt',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
                         ),
                       ],
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.grey),
+                    onPressed: () {
+                      // TODO: Implementar edición de perfil
+                    },
+                  )
                 ],
               ),
             ),
             const SizedBox(height: 30),
 
-            // 3. Lista de Opciones (Editar, Configuración, Notificaciones, Cuentas)
-            Expanded(
-              child: ListView(
-                children: [
-                  _buildProfileOption(Icons.person_outline, 'Editar Perfil', () {
-                    debugPrint("Abrir Editar Perfil");
-                  }),
-                  _buildProfileOption(Icons.settings_outlined, 'Configuración General', () {}),
-                  _buildProfileOption(Icons.notifications_outlined, 'Notificaciones', () {}),
-                  _buildProfileOption(Icons.g_mobiledata_rounded, 'Vincular cuenta de Google', () {}),
-                ],
-              ),
+            // SECCIÓN DE OPCIONES
+            _buildProfileOption(
+                Icons.account_balance_wallet_outlined,
+                'Mis Cuentas',
+                    () => _showComingSoon(context)
+            ),
+            _buildProfileOption(
+                Icons.category_outlined,
+                'Gestionar Categorías',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen()))
+            ),
+            _buildProfileOption(
+                Icons.track_changes_rounded,
+                'Metas de Ahorro',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen()))
+            ),
+            _buildProfileOption(
+                Icons.notifications_none_rounded,
+                'Notificaciones',
+                    () => _showComingSoon(context)
+            ),
+            _buildProfileOption(
+                Icons.security_rounded,
+                'Seguridad y Privacidad',
+                    () => _showComingSoon(context)
             ),
 
-            // 4. Botón de Cerrar Sesión (Destacado y separado en la parte inferior)
+            const SizedBox(height: 40),
+
+            // BOTÓN DE CERRAR SESIÓN
             SizedBox(
               width: double.infinity,
-              height: 55,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  // AQUI IRÁ LA LÓGICA DE FIREBASE AUTH PARA CERRAR SESIÓN
-                  debugPrint("Cerrando sesión...");
-                  Navigator.pop(context); // Por ahora solo regresa a la pantalla anterior
-                },
-                icon: const Icon(Icons.logout, color: Colors.redAccent),
-                label: const Text(
-                  'Cerrar Sesión',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.redAccent),
-                ),
+                onPressed: () => _showLogoutDialog(context),
+                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  backgroundColor: Colors.redAccent.withValues(alpha: 0.05),
                 ),
               ),
             ),
-            const SizedBox(height: 20), // Margen inferior
           ],
         ),
       ),
     );
   }
 
-  // Widget reutilizable para crear cada fila de opción en el perfil
+  // --- MÉTODOS DE APOYO ---
+
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Esta función estará disponible pronto')),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Cerrar Sesión?'),
+        content: const Text('¿Estás seguro de que deseas salir de Finavid?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () {
+                // Aquí llamarías a authRepository.signOut()
+                Navigator.pop(context);
+              },
+              child: const Text('Sí, salir', style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileOption(IconData icon, String title, VoidCallback onTap) {
     return Card(
-      color: Colors.white,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
+        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
       ),
       child: ListTile(
+        onTap: onTap,
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF4A47F6).withValues(alpha: 0.1), // Tonos morados/azules de la app
+            color: const Color(0xFF4A47F6).withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: const Color(0xFF4A47F6)),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-        onTap: onTap,
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
       ),
     );
   }
