@@ -4,63 +4,79 @@ import '../models/goal_model.dart';
 class GoalRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // 1. Crear una nueva meta desde cero
-  Future<void> createGoal(String userId, GoalModel goal) async {
-    final userRef = _firestore.collection('users').doc(userId);
-    await userRef.collection('goals').add(goal.toFirestore());
-  }
-
-  // 2. ABONAR a la meta (Baja Seguro para Gastar, Patrimonio Neto Intacto)
-  Future<void> addFundsToGoal(String userId, String goalId, double amountToAdd) async {
-    final userRef = _firestore.collection('users').doc(userId);
-    final goalRef = userRef.collection('goals').doc(goalId);
-
-    await _firestore.runTransaction((tx) async {
-      DocumentSnapshot userDoc = await tx.get(userRef);
-      DocumentSnapshot goalDoc = await tx.get(goalRef);
-
-      double currentSafeToSpend = (userDoc.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
-      double currentSaved = (goalDoc.data() as Map<String, dynamic>?)?['saved_amount']?.toDouble() ?? 0.0;
-
-      // Actualizamos Seguro para Gastar y el saldo de la Meta
-      tx.update(userRef, {'safe_balance': currentSafeToSpend - amountToAdd});
-      tx.update(goalRef, {'saved_amount': currentSaved + amountToAdd});
-
-      // Opcional: Registrar el movimiento como transacción para el historial
-      tx.set(userRef.collection('transactions').doc(), {
-        'title': 'Abono a Meta',
-        'category': 'Ahorro',
-        'amount': amountToAdd,
-        'is_expense': true, // Es salida del flujo de caja diario
-        'date': FieldValue.serverTimestamp(),
-      });
+  // 1. CREAR UNA META NUEVA
+  Future<void> createGoal(String uid, GoalModel goal) async {
+    await _firestore.collection('users').doc(uid).collection('goals').add({
+      'name': goal.name,
+      'targetAmount': goal.targetAmount,
+      'currentAmount': goal.currentAmount, // Inicia en 0
+      'colorHex': goal.colorHex,
     });
   }
 
-  // 3. GASTAR de la meta (Baja la Meta, Baja el Patrimonio Neto)
-  Future<void> spendFromGoal(String userId, String goalId, double amountToSpend, String reason) async {
-    final userRef = _firestore.collection('users').doc(userId);
-    final goalRef = userRef.collection('goals').doc(goalId);
+  // 2. ACTUALIZAR NOMBRE O MONTO DE LA META
+  Future<void> updateGoal(String uid, String docId, Map<String, dynamic> data) async {
+    await _firestore.collection('users').doc(uid).collection('goals').doc(docId).update(data);
+  }
+
+  // 3. ELIMINAR META (Y devolver el dinero ahorrado al "Seguro para Gastar")
+  Future<void> deleteGoal(String uid, String docId) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    final goalRef = userRef.collection('goals').doc(docId);
+
+    // Usamos runTransaction para asegurar que no se pierda el dinero
+    await _firestore.runTransaction((tx) async {
+      final goalSnap = await tx.get(goalRef);
+      if (!goalSnap.exists) return;
+
+      double savedAmount = (goalSnap.data() as Map<String, dynamic>)['currentAmount']?.toDouble() ?? 0.0;
+
+      final userSnap = await tx.get(userRef);
+      double currentSafe = (userSnap.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
+
+      // Devolvemos el dinero al saldo seguro y borramos la meta
+      tx.update(userRef, {'safe_balance': currentSafe + savedAmount});
+      tx.delete(goalRef);
+    });
+  }
+
+  // 4. ABONAR DINERO A LA META
+  Future<void> addFundsToGoal(String uid, String docId, double amount) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    final goalRef = userRef.collection('goals').doc(docId);
 
     await _firestore.runTransaction((tx) async {
-      DocumentSnapshot userDoc = await tx.get(userRef);
-      DocumentSnapshot goalDoc = await tx.get(goalRef);
+      final userSnap = await tx.get(userRef);
+      final goalSnap = await tx.get(goalRef);
 
-      double currentNetWorth = (userDoc.data() as Map<String, dynamic>?)?['net_worth']?.toDouble() ?? 0.0;
-      double currentSaved = (goalDoc.data() as Map<String, dynamic>?)?['saved_amount']?.toDouble() ?? 0.0;
+      if (!userSnap.exists || !goalSnap.exists) return;
 
-      // Actualizamos Patrimonio Neto y el saldo de la Meta
-      tx.update(userRef, {'net_worth': currentNetWorth - amountToSpend});
-      tx.update(goalRef, {'saved_amount': currentSaved - amountToSpend});
+      double currentSafe = (userSnap.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
+      double currentGoalAmt = (goalSnap.data() as Map<String, dynamic>)['currentAmount']?.toDouble() ?? 0.0;
 
-      // Registramos en qué se gastó ese ahorro
-      tx.set(userRef.collection('transactions').doc(), {
-        'title': 'Gasto de Ahorro: $reason',
-        'category': 'Uso de Meta',
-        'amount': amountToSpend,
-        'is_expense': true,
-        'date': FieldValue.serverTimestamp(),
-      });
+      // Regla Financiera: El dinero sale del "Seguro para Gastar" y entra a la "Meta"
+      tx.update(userRef, {'safe_balance': currentSafe - amount});
+      tx.update(goalRef, {'currentAmount': currentGoalAmt + amount});
+    });
+  }
+
+  // 5. GASTAR DINERO DE LA META
+  Future<void> spendFundsFromGoal(String uid, String docId, double amount) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    final goalRef = userRef.collection('goals').doc(docId);
+
+    await _firestore.runTransaction((tx) async {
+      final userSnap = await tx.get(userRef);
+      final goalSnap = await tx.get(goalRef);
+
+      if (!userSnap.exists || !goalSnap.exists) return;
+
+      double currentNet = (userSnap.data() as Map<String, dynamic>?)?['net_worth']?.toDouble() ?? 0.0;
+      double currentGoalAmt = (goalSnap.data() as Map<String, dynamic>)['currentAmount']?.toDouble() ?? 0.0;
+
+      // Regla Financiera: Gasto real, el dinero sale de la "Meta" y disminuye tu Patrimonio Neto general
+      tx.update(userRef, {'net_worth': currentNet - amount});
+      tx.update(goalRef, {'currentAmount': currentGoalAmt - amount});
     });
   }
 }

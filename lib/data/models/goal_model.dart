@@ -1,6 +1,7 @@
 // Archivo: lib/data/models/goal_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+
 class GoalModel {
   final String id;
   final String name; // En MVP: title
