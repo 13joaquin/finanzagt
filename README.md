@@ -2,7 +2,7 @@
 
 A new Flutter project.
 
-##Proyect the University
+## Proyect the University
 
 Here is my thesis proyect
 
