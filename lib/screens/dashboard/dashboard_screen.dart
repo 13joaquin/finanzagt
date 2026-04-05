@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/transaction_provider.dart';
 
-// ¡ESTA ES LA LÍNEA QUE FALTABA! Importamos tu repositorio
+// Importamos tu repositorio
 import '../../data/repositories/transaction_repository.dart';
 
 // Importamos pantallas adicionales
@@ -28,7 +28,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final NumberFormat currencyFormat = NumberFormat('#,##0.00', 'en_US');
   final TextEditingController _searchController = TextEditingController();
 
-  // 1. Instanciamos el repositorio al inicio de la clase _MainDashboardScreenState
+  // Instanciamos el repositorio
   final TransactionRepository _transactionRepo = TransactionRepository();
 
   @override
@@ -37,18 +37,24 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     super.dispose();
   }
 
-  // 2. Simplificamos la función de la UI
+  // --- FUNCIÓN CORREGIDA ---
   Future<void> _deleteTransaction(String docId, double amount, bool isExpense) async {
     try {
-      // Llamamos al repositorio delegando toda la lógica pesada
+      // 1. Obtenemos el usuario actual usando Provider directamente en esta función
+      final currentUser = Provider.of<UserProvider>(context, listen: false).currentUser;
+
+      // 2. Por seguridad, si no hay usuario (está cargando), cancelamos la acción
+      if (currentUser == null) return;
+
+      // 3. Llamamos al repositorio usando el UID real
       await _transactionRepo.deleteTransaction(
-        userId: 'test_user_123', // ID de prueba
+        userId: currentUser.uid,
         docId: docId,
         amount: amount,
         isExpense: isExpense,
       );
 
-      // Opcional: Notificación de éxito
+      // Notificación de éxito
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Transacción eliminada'), backgroundColor: Colors.green),
@@ -67,7 +73,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Widget build(BuildContext context) {
     final Color greenColor = const Color(0xFF2E7D32);
 
-    // 1. Obtenemos los datos del Usuario desde el UserProvider
+    // Obtenemos los datos del Usuario para pintar la interfaz
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
 
@@ -104,7 +110,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 ),
                 const SizedBox(height: 25),
 
-                // --- PANELES DE SALDO (Datos desde UserProvider) ---
+                // --- PANELES DE SALDO ---
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
@@ -144,14 +150,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
                 const SizedBox(height: 25),
 
-                // --- SECCIÓN DE TRANSACCIONES (Datos desde TransactionProvider) ---
+                // --- SECCIÓN DE TRANSACCIONES ---
                 Consumer<TransactionProvider>(
                   builder: (context, txProvider, child) {
                     if (txProvider.isLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    // Filtramos la lista según la búsqueda del usuario
                     final filteredDocs = txProvider.transactions.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
                       final title = (data['title'] ?? '').toString().toLowerCase();
@@ -166,19 +171,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Gráfica de Barras (Usando totales del Provider)
                         _buildChart(txProvider.totalIncome, txProvider.totalExpense, greenColor),
 
                         const SizedBox(height: 25),
                         Text('Actividad', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
                         const SizedBox(height: 15),
 
-                        // Barra de Filtros
                         _buildFilterBar(txProvider.categories),
 
                         const SizedBox(height: 15),
 
-                        // Lista de Actividad
                         if (filteredDocs.isEmpty)
                           const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay movimientos", style: TextStyle(color: Colors.grey))))
                         else
@@ -233,8 +235,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ),
     );
   }
-
-  // --- WIDGETS DE APOYO (Para mantener el build() limpio) ---
 
   Widget _buildChart(double income, double expense, Color green) {
     return Container(
