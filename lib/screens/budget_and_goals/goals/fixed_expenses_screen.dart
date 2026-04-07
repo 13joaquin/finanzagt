@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/user_provider.dart'; // Importamos el Provider
 
 class FixedExpensesScreen extends StatefulWidget {
   const FixedExpensesScreen({super.key});
@@ -13,9 +15,146 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   final TextEditingController _titleController = TextEditingController();
 
   // ==========================================
-  // LÓGICA: CREAR O EDITAR GASTO FIJO
+  // FUNCIONES CONECTADAS AL UID REAL
   // ==========================================
-  void _showExpenseFormModal({String? docId, String? currentTitle, double? currentAmount}) {
+  Future<void> _saveNewExpense(String uid, String title, double amount) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).collection('fixed_expenses').add({
+        'title': title,
+        'amount': amount,
+        'isPaid': false,
+        'color': '#4A47F6',
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Error guardando gasto fijo: $e");
+    }
+  }
+
+  Future<void> _updateExpense(String uid, String docId, String title, double amount) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).collection('fixed_expenses').doc(docId).update({
+        'title': title,
+        'amount': amount,
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Error actualizando gasto fijo: $e");
+    }
+  }
+
+  Future<void> _deleteExpense(String uid, String docId) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).collection('fixed_expenses').doc(docId).delete();
+    } catch (e) {
+      debugPrint("Error borrando gasto fijo: $e");
+    }
+  }
+
+  Future<void> _payFixedExpense(String uid, String title, double amount) async {
+    try {
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final newTransactionRef = userRef.collection('transactions').doc();
+
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final userDoc = await tx.get(userRef);
+        double currentSafe = (userDoc.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
+        double currentNet = (userDoc.data() as Map<String, dynamic>?)?['net_worth']?.toDouble() ?? 0.0;
+
+        // Descontamos el dinero de los saldos generales
+        tx.update(userRef, {
+          'safe_balance': currentSafe - amount,
+          'net_worth': currentNet - amount,
+        });
+
+        // Lo registramos como una transacción real
+        tx.set(newTransactionRef, {
+          'title': 'Pago Fijo: $title',
+          'amount': amount,
+          'type': 'expense',
+          'category': 'Gastos Fijos',
+          'date': Timestamp.now(),
+        });
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pago de $title registrado. ✓'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      debugPrint("Error pagando gasto fijo: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. OBTENER USUARIO REAL
+    final userProvider = Provider.of<UserProvider>(context);
+    final currentUser = userProvider.currentUser;
+
+    if (currentUser == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final String uid = currentUser.uid;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        title: const Text('Gastos Fijos', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blueGrey[900],
+        elevation: 0,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        // 2. CONECTAR AL STREAM DEL USUARIO REAL
+        stream: FirebaseFirestore.instance.collection('users').doc(uid).collection('fixed_expenses').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return const Center(child: Text('Algo salió mal'));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+
+          final expenses = snapshot.data!.docs;
+
+          if (expenses.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.home_work_outlined, size: 80, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  const Text("Aún no tienes gastos fijos", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: expenses.length,
+            itemBuilder: (context, index) {
+              final doc = expenses[index];
+              final data = doc.data() as Map<String, dynamic>;
+
+              return _buildExpenseCard(
+                uid: uid,
+                docId: doc.id,
+                title: data['title'] ?? 'Gasto Fijo',
+                amount: (data['amount'] ?? 0).toDouble(),
+                color: const Color(0xFF4A47F6),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showExpenseFormModal(uid: uid),
+        label: const Text('Nuevo Gasto Fijo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: const Color(0xFF4A47F6),
+      ),
+    );
+  }
+
+  // MODAL PARA CREAR / EDITAR
+  void _showExpenseFormModal({required String uid, String? docId, String? currentTitle, double? currentAmount}) {
     if (docId != null) {
       _titleController.text = currentTitle ?? '';
       _amountController.text = currentAmount?.toStringAsFixed(0) ?? '';
@@ -35,35 +174,25 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(docId == null ? 'Agregar Gasto Recurrente' : 'Editar Gasto', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(docId == null ? 'Nuevo Gasto Fijo' : 'Editar Gasto', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            TextField(controller: _titleController, decoration: InputDecoration(labelText: 'Nombre (Ej. Luz, Alquiler)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-            const SizedBox(height: 15),
-            TextField(controller: _amountController, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Monto a pagar (Q)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-            const SizedBox(height: 20),
+            TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Nombre (ej. Alquiler)')),
+            TextField(controller: _amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Monto (Q)')),
+            const SizedBox(height: 30),
             SizedBox(
               width: double.infinity, height: 50,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                onPressed: () async {
-                  if (_titleController.text.isEmpty || _amountController.text.isEmpty) return;
-                  double amount = double.parse(_amountController.text);
-
-                  final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
+                onPressed: () {
+                  final title = _titleController.text;
+                  final amt = double.tryParse(_amountController.text) ?? 0;
                   if (docId == null) {
-                    await userRef.collection('fixed_expenses').add({
-                      'title': _titleController.text,
-                      'amount': amount,
-                    });
+                    _saveNewExpense(uid, title, amt);
                   } else {
-                    await userRef.collection('fixed_expenses').doc(docId).update({
-                      'title': _titleController.text,
-                      'amount': amount,
-                    });
+                    _updateExpense(uid, docId, title, amt);
                   }
-                  if (mounted) Navigator.pop(context);
                 },
-                child: Text(docId == null ? 'Guardar Gasto Fijo' : 'Actualizar', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A47F6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('Guardar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 20),
@@ -73,155 +202,24 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
     );
   }
 
-  // ==========================================
-  // LÓGICA: EJECUTAR PAGO DEL GASTO FIJO
-  // ==========================================
-  void _payFixedExpense(String title, double amount) async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc('test_user_123');
-
-    try {
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        var userSnap = await tx.get(userRef);
-        double safeBalance = (userSnap.data() as Map<String, dynamic>)['safe_balance'] ?? 0.0;
-        double netWorth = (userSnap.data() as Map<String, dynamic>)['net_worth'] ?? 0.0;
-
-        if (safeBalance < amount) throw Exception("Fondos insuficientes");
-
-        // Descuenta el dinero de tus saldos reales
-        tx.update(userRef, {
-          'safe_balance': safeBalance - amount,
-          'net_worth': netWorth - amount
-        });
-
-        // Lo agrega a tu Actividad (Transacciones)
-        tx.set(userRef.collection('transactions').doc(), {
-          'title': 'Pago de factura: $title',
-          'category': 'Gastos Fijos',
-          'amount': amount,
-          'is_expense': true,
-          'date': FieldValue.serverTimestamp()
-        });
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pago de $title ejecutado con éxito'), backgroundColor: Colors.green));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: No tienes suficiente Saldo Seguro'), backgroundColor: Colors.red));
-    }
-  }
-
-  // ==========================================
-  // LÓGICA: ELIMINAR GASTO DE LA LISTA
-  // ==========================================
-  void _deleteExpense(String docId) async {
-    await FirebaseFirestore.instance.collection('users').doc('test_user_123').collection('fixed_expenses').doc(docId).delete();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final Color blueColor = Colors.blue;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(title: const Text('Gastos Fijos y Hogar', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.white, foregroundColor: Colors.blueGrey[900], elevation: 0),
-      body: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').doc('test_user_123').collection('fixed_expenses').snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-
-            List<QueryDocumentSnapshot> expenses = snapshot.hasData ? snapshot.data!.docs : [];
-
-            // Calculamos el total de gastos fijos
-            double totalFixed = 0;
-            for (var doc in expenses) {
-              totalFixed += ((doc.data() as Map<String, dynamic>)['amount'] ?? 0).toDouble();
-            }
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // TARJETA TOTAL GASTOS FIJOS
-                  Container(
-                    width: double.infinity, padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: blueColor, borderRadius: BorderRadius.circular(20)),
-                    child: Column(
-                      children: [
-                        const Text('TOTAL GASTOS FIJOS DEL MES', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text('Q${totalFixed.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // MIS GASTOS RECURRENTES Y BOTÓN AGREGAR
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Gastos Recurrentes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
-                      TextButton.icon(
-                        onPressed: () => _showExpenseFormModal(),
-                        icon: Icon(Icons.add_circle, color: blueColor),
-                        label: Text('Agregar nuevo', style: TextStyle(color: blueColor, fontWeight: FontWeight.bold)),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-
-                  // LISTA INFINITA DE GASTOS FIJOS
-                  if (expenses.isEmpty)
-                    const Center(child: Padding(padding: EdgeInsets.all(40.0), child: Text("No tienes gastos fijos registrados", style: TextStyle(color: Colors.grey))))
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: expenses.length,
-                      itemBuilder: (context, index) {
-                        var doc = expenses[index];
-                        var data = doc.data() as Map<String, dynamic>;
-                        String title = data['title'] ?? 'Sin título';
-                        double amount = (data['amount'] ?? 0).toDouble();
-
-                        return _buildExpenseCard(docId: doc.id, title: title, amount: amount, color: blueColor);
-                      },
-                    ),
-                ],
-              ),
-            );
-          }
-      ),
-    );
-  }
-
-  // WIDGET DE LA TARJETA DEL GASTO FIJO
-  Widget _buildExpenseCard({required String docId, required String title, required double amount, required Color color}) {
+  // WIDGET TARJETA
+  Widget _buildExpenseCard({required String uid, required String docId, required String title, required double amount, required Color color}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.receipt_long, color: color)),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('Monto: Q${amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 14, color: Colors.grey[800], fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              // MENÚ DE 3 PUNTOS
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: Colors.grey),
                 onSelected: (value) {
-                  if (value == 'edit') _showExpenseFormModal(docId: docId, currentTitle: title, currentAmount: amount);
-                  if (value == 'delete') _deleteExpense(docId);
+                  if (value == 'edit') _showExpenseFormModal(uid: uid, docId: docId, currentTitle: title, currentAmount: amount);
+                  if (value == 'delete') _deleteExpense(uid, docId);
                 },
                 itemBuilder: (context) => [
                   const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 10), Text('Editar')])),
@@ -230,18 +228,18 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text('Q${amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 15),
-
-          // BOTÓN DE PAGAR
           SizedBox(
             width: double.infinity, height: 40,
             child: ElevatedButton.icon(
-              onPressed: () => _payFixedExpense(title, amount),
+              onPressed: () => _payFixedExpense(uid, title, amount),
               icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
               label: const Text('Registrar Pago', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(backgroundColor: color, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             ),
-          )
+          ),
         ],
       ),
     );
