@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// Importamos el Provider de usuario
+import 'package:firebase_auth/firebase_auth.dart'; // Importante para cerrar sesión
 import '../../providers/user_provider.dart';
-// Importamos las pantallas para la navegación
 import '../budget_and_goals/goals/savings_goals_screen.dart';
 import '../transactions/manage_categories_screen.dart';
+// IMPORTAMOS LA PANTALLA DE AUTH QUE CREAMOS
+import '../auth/auth_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // 1. Escuchamos al UserProvider
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.currentUser;
+
+    // Verificamos si es un usuario invitado (Anónimo)
+    final bool isAnonymous = user?.isAnonymous ?? true;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -24,33 +27,26 @@ class ProfileScreen extends StatelessWidget {
         foregroundColor: Colors.blueGrey[900],
         centerTitle: true,
       ),
-      body: SingleChildScrollView( // Añadido por si hay pantallas pequeñas
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // SECCIÓN DE CABECERA (DATOS REALES)
+            // SECCIÓN DE CABECERA
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))
                 ],
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: const Color(0xFF4A47F6).withOpacity(0.1),
-                    child: Text(
-                      user?.displayName?.substring(0, 1).toUpperCase() ?? "U",
-                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF4A47F6)),
-                    ),
+                  const CircleAvatar(
+                    radius: 35,
+                    backgroundColor: Color(0xFF4A47F6),
+                    child: Icon(Icons.person, size: 40, color: Colors.white),
                   ),
                   const SizedBox(width: 20),
                   Expanded(
@@ -58,81 +54,73 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user?.displayName ?? 'Cargando...',
+                          isAnonymous ? "Usuario Invitado" : (user?.displayName ?? "Usuario de Finavid"),
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          user?.email ?? 'usuario@finavid.gt',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                          isAnonymous ? "Progreso no guardado" : (user?.email ?? ""),
+                          style: TextStyle(color: Colors.grey[600]),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.grey),
-                    onPressed: () {
-                      // TODO: Implementar edición de perfil
-                    },
-                  )
                 ],
               ),
             ),
             const SizedBox(height: 30),
 
-            // SECCIÓN DE OPCIONES
-            _buildProfileOption(
-                Icons.account_balance_wallet_outlined,
-                'Mis Cuentas',
-                    () => _showComingSoon(context)
-            ),
-            _buildProfileOption(
-                Icons.category_outlined,
-                'Gestionar Categorías',
-                    () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen()))
-            ),
-            _buildProfileOption(
-                Icons.track_changes_rounded,
-                'Metas de Ahorro',
-                    () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen()))
-            ),
-            _buildProfileOption(
-                Icons.notifications_none_rounded,
-                'Notificaciones',
-                    () => _showComingSoon(context)
-            ),
-            _buildProfileOption(
-                Icons.security_rounded,
-                'Seguridad y Privacidad',
-                    () => _showComingSoon(context)
-            ),
-
-            const SizedBox(height: 40),
-
-            // BOTÓN DE CERRAR SESIÓN
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _showLogoutDialog(context),
-                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.redAccent),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            // --- NUEVO: BOTÓN PARA GUARDAR CUENTA (Solo si es anónimo) ---
+            if (isAnonymous)
+              Container(
+                margin: const EdgeInsets.only(bottom: 25),
+                width: double.infinity,
+                height: 60,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AuthScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.cloud_upload_outlined, color: Colors.white),
+                  label: const Text(
+                    'Guardar mi cuenta / Iniciar Sesión',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A47F6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 2,
+                  ),
                 ),
               ),
-            ),
+
+            // OPCIONES DE PERFIL
+            _buildProfileOption(Icons.savings_outlined, 'Mis Metas', () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen()));
+            }),
+            _buildProfileOption(Icons.category_outlined, 'Categorías de Gastos', () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen()));
+            }),
+            _buildProfileOption(Icons.notifications_none_outlined, 'Notificaciones', () {}),
+            _buildProfileOption(Icons.security_outlined, 'Privacidad y Seguridad', () {}),
+            _buildProfileOption(Icons.help_outline, 'Ayuda y Soporte', () {}),
+
+            const SizedBox(height: 30),
+
+            // BOTÓN DE CERRAR SESIÓN (Solo se muestra si NO es anónimo)
+            if (!isAnonymous)
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => _showLogoutDialog(context),
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                ),
+              ),
           ],
         ),
       ),
-    );
-  }
-
-  // --- MÉTODOS DE APOYO ---
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Esta función estará disponible pronto')),
     );
   }
 
@@ -145,11 +133,11 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           TextButton(
-              onPressed: () {
-                // Aquí llamarías a authRepository.signOut()
-                Navigator.pop(context);
-              },
-              child: const Text('Sí, salir', style: TextStyle(color: Colors.red))
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Sí, salir', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -175,7 +163,7 @@ class ProfileScreen extends StatelessWidget {
           child: Icon(icon, color: const Color(0xFF4A47F6)),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
       ),
     );
   }
