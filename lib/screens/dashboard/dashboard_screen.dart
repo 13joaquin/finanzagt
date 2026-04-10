@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // IMPORTANTE
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 
-// Importamos tus Providers
 import '../../providers/user_provider.dart';
 import '../../providers/transaction_provider.dart';
-
-// Importamos tu repositorio
 import '../../data/repositories/transaction_repository.dart';
-
-// Importamos pantallas adicionales
 import '../profile/profile_screen.dart';
 
 class MainDashboardScreen extends StatefulWidget {
@@ -28,7 +23,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final NumberFormat currencyFormat = NumberFormat('#,##0.00', 'en_US');
   final TextEditingController _searchController = TextEditingController();
 
-  // Instanciamos el repositorio
   final TransactionRepository _transactionRepo = TransactionRepository();
 
   @override
@@ -37,16 +31,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     super.dispose();
   }
 
-  // --- FUNCIÓN CORREGIDA ---
   Future<void> _deleteTransaction(String docId, double amount, bool isExpense) async {
     try {
-      // 1. Obtenemos el usuario actual usando Provider directamente en esta función
       final currentUser = Provider.of<UserProvider>(context, listen: false).currentUser;
-
-      // 2. Por seguridad, si no hay usuario (está cargando), cancelamos la acción
       if (currentUser == null) return;
 
-      // 3. Llamamos al repositorio usando el UID real
       await _transactionRepo.deleteTransaction(
         userId: currentUser.uid,
         docId: docId,
@@ -54,7 +43,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         isExpense: isExpense,
       );
 
-      // Notificación de éxito
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Transacción eliminada'), backgroundColor: Colors.green),
@@ -72,8 +60,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final Color greenColor = const Color(0xFF2E7D32);
-
-    // Obtenemos los datos del Usuario para pintar la interfaz
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
 
@@ -90,7 +76,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- CABECERA ---
+                // Cabecera
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -110,47 +96,63 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 ),
                 const SizedBox(height: 25),
 
-                // --- PANELES DE SALDO ---
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                              color: currentUser.safeToSpend >= 0 ? greenColor : Colors.redAccent,
-                              borderRadius: BorderRadius.circular(16)
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('SEGURO PARA GASTAR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                              Text('Q${currencyFormat.format(currentUser.safeToSpend)}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                // --- NUEVO PANELES DE SALDO CON STREAMBUILDER ---
+                StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance.collection('users').doc(currentUser.uid).snapshots(), // Escucha en tiempo real
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || !snapshot.data!.exists) {
+                        return const Text("Error al cargar saldos");
+                      }
+
+                      var userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                      double safeBalance = (userData['safe_balance'] ?? 0.0).toDouble();
+                      double netWorth = (userData['net_worth'] ?? 0.0).toDouble();
+
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
+                        child: Row(
                           children: [
-                            Text('PATRIMONIO NETO', style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)),
-                            Text('Q${currencyFormat.format(currentUser.netWorth)}',
-                                style: TextStyle(color: Colors.blueGrey[900], fontSize: 18, fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                    color: safeBalance >= 0 ? greenColor : Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(16)
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('SEGURO PARA GASTAR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    Text('Q${currencyFormat.format(safeBalance)}', // Dato dinámico
+                                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('PATRIMONIO NETO', style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)),
+                                  Text('Q${currencyFormat.format(netWorth)}', // Dato dinámico
+                                      style: TextStyle(color: Colors.blueGrey[900], fontSize: 18, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
+                      );
+                    }
                 ),
 
                 const SizedBox(height: 25),
 
-                // --- SECCIÓN DE TRANSACCIONES ---
+                // Sección de Transacciones
                 Consumer<TransactionProvider>(
                   builder: (context, txProvider, child) {
                     if (txProvider.isLoading) {
@@ -236,6 +238,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
+  // --- Widgets de apoyo ---
   Widget _buildChart(double income, double expense, Color green) {
     return Container(
       height: 200,
