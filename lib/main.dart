@@ -1,3 +1,5 @@
+import 'package:finanzagt/screens/auth/welcome_screen.dart';
+import 'package:finanzagt/screens/main_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +10,8 @@ import 'providers/user_provider.dart';
 import 'providers/transaction_provider.dart';
 
 // Importamos el layout principal
-import 'package:finanzagt/screens/main_layout.dart';
+//import 'package:finanzagt/screens/main_layout.dart';
+import 'package:finanzagt/screens/auth/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

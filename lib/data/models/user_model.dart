@@ -6,10 +6,13 @@ class UserModel {
   final bool isAnonymous;
   final String? email;
   final String displayName;
-  final double safeToSpend; // En nuestro MVP: safe_balance
-  final double netWorth;    // En nuestro MVP: net_worth
+  final double safeToSpend;
+  final double netWorth;
   final String subscriptionStatus;
   final Map<String, dynamic> preferences;
+  // --- NUEVOS CAMPOS ---
+  final bool profileCompleted;
+  final String currency;
 
   UserModel({
     required this.uid,
@@ -20,6 +23,8 @@ class UserModel {
     required this.netWorth,
     this.subscriptionStatus = 'free',
     required this.preferences,
+    this.profileCompleted = false, // Por defecto falso
+    this.currency = 'Q',           // Por defecto Quetzales
   });
 
   // Fábrica para leer de Firestore
@@ -31,13 +36,16 @@ class UserModel {
       isAnonymous: data['isAnonymous'] ?? true,
       email: data['email'],
       displayName: data['displayName'] ?? 'Usuario',
-      safeToSpend: (data['safe_balance'] ?? 0.0).toDouble(), // Conectado al MVP actual
-      netWorth: (data['net_worth'] ?? 0.0).toDouble(),       // Conectado al MVP actual
+      safeToSpend: (data['safe_balance'] ?? 0.0).toDouble(),
+      netWorth: (data['net_worth'] ?? 0.0).toDouble(),
       subscriptionStatus: data['subscriptionStatus'] ?? 'free',
       preferences: data['preferences'] ?? {
         'currency': 'GTQ',
-        'budgetModel': 'simplified', // El modelo de 3 cubetas que implementamos
+        'budgetModel': 'simplified',
       },
+      // Leemos los nuevos campos (con valores por defecto por si el documento es viejo)
+      profileCompleted: data['profile_completed'] ?? false,
+      currency: data['currency'] ?? (data['preferences']?['currency'] ?? 'Q'),
     );
   }
 
@@ -51,6 +59,9 @@ class UserModel {
       'net_worth': netWorth,
       'subscriptionStatus': subscriptionStatus,
       'preferences': preferences,
+      // Guardamos los nuevos campos
+      'profile_completed': profileCompleted,
+      'currency': currency,
     };
   }
 }

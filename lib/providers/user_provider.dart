@@ -16,18 +16,15 @@ class UserProvider extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
 
   UserProvider() {
-    // Empezamos a escuchar el estado de autenticación desde que nace el Provider
     _listenToAuthChanges();
   }
 
   void _listenToAuthChanges() {
     _authSubscription = _authRepo.authStateChanges.listen((User? firebaseUser) async {
       if (firebaseUser == null) {
-        // El usuario cerró sesión o no está logueado
         _currentUser = null;
         notifyListeners();
       } else {
-        // El usuario está logueado, vamos a cargar sus datos de Firestore
         await _loadOrCreateUserProfile(firebaseUser);
       }
     });
@@ -38,10 +35,8 @@ class UserProvider extends ChangeNotifier {
       final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
 
       if (userDoc.exists) {
-        // CORRECCIÓN 1: Le pasamos el DocumentSnapshot completo al Modelo
         _currentUser = UserModel.fromFirestore(userDoc);
       } else {
-        // CORRECCIÓN 2: Usuario nuevo (primer ingreso), añadimos 'preferences' y adaptamos los campos
         _currentUser = UserModel(
           uid: firebaseUser.uid,
           isAnonymous: firebaseUser.isAnonymous,
@@ -51,11 +46,10 @@ class UserProvider extends ChangeNotifier {
           netWorth: 0.0,
           preferences: {
             'currency': 'GTQ',
-            'budgetModel': 'simplified', // Según la Arquitectura de Finavid
+            'budgetModel': 'simplified',
           },
         );
 
-        // Guardamos en Firestore para la posteridad
         await _firestore.collection('users').doc(firebaseUser.uid).set(_currentUser!.toFirestore());
       }
       notifyListeners();
@@ -64,13 +58,59 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Método para iniciar sesión anónima desde la UI
-  Future<void> signInAnonymously() async {
-    await _authRepo.signInAnonymously();
-    // No hace falta hacer nada más aquí, _listenToAuthChanges se encargará del resto
+  // --- NUEVOS MÉTODOS PARA ACTUALIZAR EL PERFIL ---
+
+  /// Actualiza solo el nombre (Para resolver tu error actual)
+  Future<void> updateDisplayName(String newName) async {
+    if (_currentUser == null) return;
+    try {
+      await _firestore.collection('users').doc(_currentUser!.uid).update({
+        'display_name': newName,
+      });
+
+      // Recargamos el perfil local para que la UI se entere del cambio
+      final userDoc = await _firestore.collection('users').doc(_currentUser!.uid).get();
+      _currentUser = UserModel.fromFirestore(userDoc);
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error al actualizar nombre: $e");
+      rethrow;
+    }
   }
 
-  // Método para cerrar sesión
+  /// Método más completo para la pantalla de SetupProfile
+  Future<void> completeUserProfile({
+    required String name,
+    required int age,
+    required String currency,
+  }) async {
+    if (_currentUser == null) return;
+    try {
+      await _firestore.collection('users').doc(_currentUser!.uid).update({
+        'display_name': name,
+        'age': age,
+        'currency': currency,
+        'profile_completed': true,
+      });
+
+      // Sincronizamos el estado local
+      final userDoc = await _firestore.collection('users').doc(_currentUser!.uid).get();
+      _currentUser = UserModel.fromFirestore(userDoc);
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error al completar perfil: $e");
+      rethrow;
+    }
+  }
+
+  // --- MÉTODOS EXISTENTES ---
+
+  Future<void> signInAnonymously() async {
+    await _authRepo.signInAnonymously();
+  }
+
   Future<void> signOut() async {
     await _authRepo.signOut();
   }
