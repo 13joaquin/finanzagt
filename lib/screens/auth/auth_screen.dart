@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'forgot_password_screen.dart';
+import 'welcome_screen.dart'; // Importante para la redirección
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -18,73 +19,143 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
 
   Future<void> _submitAuth() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage("Por favor, completa todos los campos");
+      return;
+    }
+
     setState(() => _isLoading = true);
+
     try {
       if (_isLogin) {
-        // LOGIN NORMAL
-        await _auth.signInWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim()
-        );
+        // --- FLUJO LOGIN (USUARIO EXISTENTE) ---
+        await _auth.signInWithEmailAndPassword(email: email, password: password);
+
+        if (mounted) {
+          // Navegamos a WelcomeScreen indicando que NO es nuevo usuario
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const WelcomeScreen(isNewUser: false)),
+                (route) => false,
+          );
+        }
       } else {
-        // REGISTRO O VINCULACIÓN
+        // --- FLUJO REGISTRO (CONVERSIÓN DE ANÓNIMO) ---
         User? currentUser = _auth.currentUser;
-        AuthCredential credential = EmailAuthProvider.credential(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim()
-        );
+        AuthCredential credential = EmailAuthProvider.credential(email: email, password: password);
 
         if (currentUser != null && currentUser.isAnonymous) {
-          // CONVERTIR ANÓNIMO A REAL (No pierde sus gastos)
+          // VINCULACIÓN: Pega los datos del invitado a la nueva cuenta de correo
           await currentUser.linkWithCredential(credential);
         } else {
-          // CREAR CUENTA NUEVA DESDE CERO
-          await _auth.createUserWithEmailAndPassword(
-              email: _emailController.text.trim(),
-              password: _passwordController.text.trim()
+          // Caso de respaldo si no hubiera usuario anónimo
+          await _auth.createUserWithEmailAndPassword(email: email, password: password);
+        }
+
+        if (mounted) {
+          // Navegamos a WelcomeScreen indicando que SÍ es nuevo usuario
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const WelcomeScreen(isNewUser: true)),
+                (route) => false,
           );
         }
       }
-      if (mounted) Navigator.pop(context); // El AuthGate hará el resto
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = "Ocurrió un error";
+      if (e.code == 'email-already-in-use') {
+        errorMessage = "Este correo ya tiene una cuenta. Intenta iniciar sesión.";
+      } else if (e.code == 'wrong-password' || e.code == 'user-not-found') {
+        errorMessage = "Correo o contraseña incorrectos.";
+      }
+      _showMessage(errorMessage);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      _showMessage("Error inesperado: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
+    // ... Tu diseño actual de UI se mantiene igual,
+    // pero asegúrate de que el botón use _submitAuth
     return Scaffold(
-      appBar: AppBar(title: Text(_isLogin ? "Iniciar Sesión" : "Crear Cuenta")),
-      body: Padding(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(_isLogin ? "Iniciar Sesión" : "Crear Cuenta"),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(25.0),
         child: Column(
           children: [
-            TextField(controller: _emailController, decoration: const InputDecoration(labelText: "Correo")),
-            TextField(controller: _passwordController, decoration: const InputDecoration(labelText: "Contraseña"), obscureText: true),
-
-            if (_isLogin)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const ForgotPasswordScreen())),
-                  child: const Text("¿Olvidaste tu contraseña?"),
-                ),
+            const SizedBox(height: 20),
+            Text(
+              _isLogin ? "¡Bienvenido de vuelta!" : "Protege tus datos",
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _isLogin
+                  ? "Ingresa tus credenciales para continuar"
+                  : "Al crear una cuenta, tus gastos y cubetas se guardarán para siempre.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 40),
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(
+                labelText: "Correo electrónico",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                prefixIcon: const Icon(Icons.email_outlined),
               ),
-
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(
+                labelText: "Contraseña",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                prefixIcon: const Icon(Icons.lock_outline),
+              ),
+              obscureText: true,
+            ),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 55,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submitAuth,
-                child: _isLoading ? const CircularProgressIndicator() : Text(_isLogin ? "Entrar" : "Registrarme"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A47F6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                  _isLogin ? "Entrar" : "Registrarme y Guardar",
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
               ),
             ),
             TextButton(
               onPressed: () => setState(() => _isLogin = !_isLogin),
-              child: Text(_isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Logueate"),
+              child: Text(
+                _isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión",
+                style: const TextStyle(color: Color(0xFF4A47F6), fontWeight: FontWeight.bold),
+              ),
             )
           ],
         ),

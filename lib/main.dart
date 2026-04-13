@@ -10,8 +10,7 @@ import 'providers/user_provider.dart';
 import 'providers/transaction_provider.dart';
 
 // Importamos el layout principal
-//import 'package:finanzagt/screens/main_layout.dart';
-import 'package:finanzagt/screens/auth/auth_gate.dart';
+import 'package:finanzagt/screens/main_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,8 +78,8 @@ class AuthWrapper extends StatelessWidget {
 
     // Si aún no hay un usuario cargado en el Provider
     if (userProvider.currentUser == null) {
-      // Disparamos el inicio de sesión anónimo automático (Paso 1 de tu arquitectura)
-      userProvider.signInAnonymously();
+      // ¡ELIMINAMOS la llamada a userProvider.signInAnonymously()!
+      // Ahora el UserProvider se encarga de esto automáticamente en segundo plano.
 
       return const Scaffold(
         body: Center(

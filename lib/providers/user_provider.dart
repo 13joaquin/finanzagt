@@ -22,9 +22,22 @@ class UserProvider extends ChangeNotifier {
   void _listenToAuthChanges() {
     _authSubscription = _authRepo.authStateChanges.listen((User? firebaseUser) async {
       if (firebaseUser == null) {
+        // --- INICIO SILENCIOSO ---
+        // Si no hay nadie conectado (al abrir la app o al cerrar sesión),
+        // creamos una cuenta anónima automáticamente.
         _currentUser = null;
         notifyListeners();
+
+        try {
+          debugPrint("Iniciando sesión anónima automáticamente...");
+          await _authRepo.signInAnonymously();
+          // Al hacer esto, Firebase volverá a disparar este listener,
+          // pero ahora firebaseUser YA NO será nulo, y pasará al 'else' de abajo.
+        } catch (e) {
+          debugPrint("Error en inicio silencioso: $e");
+        }
       } else {
+        // Si hay un usuario (Anónimo o con Correo), cargamos su perfil
         await _loadOrCreateUserProfile(firebaseUser);
       }
     });
@@ -37,17 +50,16 @@ class UserProvider extends ChangeNotifier {
       if (userDoc.exists) {
         _currentUser = UserModel.fromFirestore(userDoc);
       } else {
+        // Solo se crea el documento la primera vez que Firebase genera el ID
         _currentUser = UserModel(
           uid: firebaseUser.uid,
           isAnonymous: firebaseUser.isAnonymous,
-          displayName: firebaseUser.isAnonymous ? "Usuario Invitado" : (firebaseUser.displayName ?? "Nuevo Usuario"),
+          displayName: firebaseUser.isAnonymous ? "Invitado" : "Usuario",
           email: firebaseUser.email,
           safeToSpend: 0.0,
           netWorth: 0.0,
-          preferences: {
-            'currency': 'GTQ',
-            'budgetModel': 'simplified',
-          },
+          preferences: {'currency': 'GTQ'},
+          profileCompleted: false,
         );
 
         await _firestore.collection('users').doc(firebaseUser.uid).set(_currentUser!.toFirestore());
@@ -58,9 +70,8 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- NUEVOS MÉTODOS PARA ACTUALIZAR EL PERFIL ---
+  // --- MÉTODOS PARA ACTUALIZAR EL PERFIL ---
 
-  /// Actualiza solo el nombre (Para resolver tu error actual)
   Future<void> updateDisplayName(String newName) async {
     if (_currentUser == null) return;
     try {
@@ -68,10 +79,8 @@ class UserProvider extends ChangeNotifier {
         'display_name': newName,
       });
 
-      // Recargamos el perfil local para que la UI se entere del cambio
       final userDoc = await _firestore.collection('users').doc(_currentUser!.uid).get();
       _currentUser = UserModel.fromFirestore(userDoc);
-
       notifyListeners();
     } catch (e) {
       debugPrint("Error al actualizar nombre: $e");
@@ -79,7 +88,6 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  /// Método más completo para la pantalla de SetupProfile
   Future<void> completeUserProfile({
     required String name,
     required int age,
@@ -94,10 +102,8 @@ class UserProvider extends ChangeNotifier {
         'profile_completed': true,
       });
 
-      // Sincronizamos el estado local
       final userDoc = await _firestore.collection('users').doc(_currentUser!.uid).get();
       _currentUser = UserModel.fromFirestore(userDoc);
-
       notifyListeners();
     } catch (e) {
       debugPrint("Error al completar perfil: $e");
@@ -105,14 +111,12 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- MÉTODOS EXISTENTES ---
-
-  Future<void> signInAnonymously() async {
-    await _authRepo.signInAnonymously();
-  }
+  // --- MÉTODOS DE AUTENTICACIÓN ---
 
   Future<void> signOut() async {
     await _authRepo.signOut();
+    // Nota: Al hacer signOut, firebaseUser será nulo, el listener lo detectará
+    // y creará un invitado nuevo automáticamente. ¡Fricción Cero!
   }
 
   @override

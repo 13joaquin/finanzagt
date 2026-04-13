@@ -9,10 +9,10 @@ class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
 
   @override
-  State<MainLayoutScreen> createState() =>  _MainLayotSreenState();
+  State<MainLayoutScreen> createState() => _MainLayoutScreenState(); // Corregido
 }
 
-class _MainLayotSreenState extends State<MainLayoutScreen> {
+class _MainLayoutScreenState extends State<MainLayoutScreen> {
   int _currentIndex = 0;
 
   // Lista de pantallas para navegar
