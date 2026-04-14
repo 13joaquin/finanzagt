@@ -1,3 +1,4 @@
+// Archivo: lib/screens/profile/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
@@ -10,10 +11,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Escuchamos al UserProvider para obtener los datos reales
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.currentUser;
-
     final bool isAnonymous = user?.isAnonymous ?? true;
 
     return Scaffold(
@@ -29,46 +28,15 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // SECCIÓN DE CABECERA CON DATOS REALES
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 35,
-                    backgroundColor: const Color(0xFF4A47F6).withOpacity(0.1),
-                    child: Text(
-                      user?.displayName[0].toUpperCase() ?? "U",
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF4A47F6)),
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.displayName ?? 'Usuario',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          isAnonymous ? 'Cuenta Invitado' : (user?.email ?? 'Sin correo'),
-                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // --- SECCIÓN DE CABECERA Y CONVERSIÓN ---
+            if (isAnonymous)
+              _buildConversionSection(context) // Muestra banner de registro y botón de login
+            else
+              _buildRegisteredHeader(user?.displayName ?? "Usuario", user?.email ?? ""), // Cabecera normal
+
             const SizedBox(height: 30),
 
-            // OPCIONES DE CONFIGURACIÓN
+            // --- OPCIONES DE CONFIGURACIÓN ---
             _buildProfileOption(Icons.category_outlined, 'Gestionar Categorías', () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen()));
             }),
@@ -76,33 +44,133 @@ class ProfileScreen extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen()));
             }),
 
-            // Si es anónimo, mostrar opción de proteger cuenta
-            if (isAnonymous)
-              _buildProfileOption(Icons.security_rounded, 'Proteger mi cuenta con Email', () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen()));
-              }),
-
-            const SizedBox(height: 20),
-            const Divider(),
             const SizedBox(height: 20),
 
-            // BOTÓN DE CERRAR SESIÓN (Actualizado)
-            ListTile(
-              onTap: () => _showLogoutDialog(context, userProvider),
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.logout_rounded, color: Colors.red),
+            // --- BOTÓN DE CERRAR SESIÓN (SOLO REALES) ---
+            if (!isAnonymous) ...[
+              const Divider(),
+              const SizedBox(height: 20),
+              ListTile(
+                onTap: () => _showLogoutDialog(context, userProvider),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.logout_rounded, color: Colors.red),
+                ),
+                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.red),
               ),
-              title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.red),
-            ),
+            ]
           ],
         ),
       ),
     );
   }
 
+  // --- WIDGET PARA USUARIOS ANÓNIMOS ---
+  Widget _buildConversionSection(BuildContext context) {
+    return Column(
+      children: [
+        // Botón 1: Registrarse (Destacado)
+        Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF4A47F6), Color(0xFF6C63FF)]),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [BoxShadow(color: const Color(0xFF4A47F6).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+          ),
+          child: Column(
+            children: [
+              const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 45),
+              const SizedBox(height: 15),
+              const Text(
+                "Guarda tu progreso",
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "Crea una cuenta para no perder tus gastos y sincronizarlos en la nube.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF4A47F6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                onPressed: () {
+                  // Abre AuthScreen para REGISTRARSE
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen()));
+                },
+                child: const Text("Crear mi cuenta", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Botón 2: Ya tengo cuenta (Sutil)
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 50),
+            side: const BorderSide(color: Color(0xFF4A47F6)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          ),
+          onPressed: () {
+            // Abre AuthScreen para INICIAR SESIÓN
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen()));
+          },
+          child: const Text("Ya tengo una cuenta. Iniciar sesión", style: TextStyle(color: Color(0xFF4A47F6), fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  // --- WIDGET PARA USUARIOS REGISTRADOS ---
+  Widget _buildRegisteredHeader(String name, String email) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 35,
+            backgroundColor: const Color(0xFF4A47F6).withOpacity(0.1),
+            child: Text(
+              name[0].toUpperCase(),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF4A47F6)),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  email,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ... (El resto de tus métodos _showLogoutDialog y _buildProfileOption se quedan igual)
   void _showLogoutDialog(BuildContext context, UserProvider provider) {
     showDialog(
       context: context,
@@ -114,8 +182,7 @@ class ProfileScreen extends StatelessWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context); // Cerramos el diálogo primero
-              await provider.signOut();
-              // El AuthGate nos llevará automáticamente a la WelcomeScreen
+              await provider.signOut(); // Al hacer signOut, el motor silencioso crea un invitado nuevo
             },
             child: const Text('Sí, salir', style: TextStyle(color: Colors.red)),
           ),

@@ -11,6 +11,7 @@ import 'providers/transaction_provider.dart';
 
 // Importamos el layout principal
 import 'package:finanzagt/screens/main_layout.dart';
+import 'package:finanzagt/screens/auth/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,6 +100,6 @@ class AuthWrapper extends StatelessWidget {
     }
 
     // ¡Si ya tenemos usuario, entramos a la App!
-    return const MainLayoutScreen();
+    return const AuthGate();
   }
 }
