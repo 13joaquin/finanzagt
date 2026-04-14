@@ -12,11 +12,11 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
 
-    // 1. ¿No hay nadie? -> Bienvenida
+   /* // 1. ¿No hay nadie? -> Bienvenida
     if (!userProvider.isAuthenticated) {
       return const WelcomeScreen();
     }
-
+*/
     final user = userProvider.currentUser;
 
     // 2. ¿Hay alguien pero le falta el nombre/moneda? -> Setup
