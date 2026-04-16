@@ -5,12 +5,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
-// Importamos tus Providers
+// 1. Importamos tus Providers (¡Añadimos el nuevo!)
 import 'providers/user_provider.dart';
 import 'providers/transaction_provider.dart';
+import 'providers/sanctuary_provider.dart'; // <-- NUEVO: Importación del Santuario
 
-// Importamos el layout principal
+// Importamos pantallas
 import 'package:finanzagt/screens/main_layout.dart';
+import 'package:finanzagt/screens/auth/welcome_screen.dart';
 import 'package:finanzagt/screens/auth/auth_gate.dart';
 
 void main() async {
@@ -21,25 +23,28 @@ void main() async {
   );
 
   runApp(
+    // EL "DIRECTORIO" DE TU APLICACIÓN
     MultiProvider(
       providers: [
-        // 1. Iniciamos el UserProvider (él mismo se encarga de escuchar a Firebase)
+        // Tienda 1: Maneja al Usuario
         ChangeNotifierProvider(
           create: (_) => UserProvider(),
         ),
 
-        // 2. Usamos ProxyProvider para que el TransactionProvider siempre tenga el UID real
-        // Esto elimina la necesidad de pasar 'test_user_123' a mano
+        // Tienda 2: Maneja las Transacciones
         ChangeNotifierProxyProvider<UserProvider, TransactionProvider>(
           create: (_) => TransactionProvider(),
           update: (_, userProvider, txProvider) {
             final uid = userProvider.currentUser?.uid;
             if (uid != null) {
-              // En cuanto tenemos UID, empezamos a escuchar sus transacciones reales
               txProvider!.listenToTransactions(uid);
             }
             return txProvider!;
           },
+        ),
+        // Tienda 3: EL NUEVO CEREBRO DEL SANTUARIO <-- NUEVO
+        ChangeNotifierProvider(
+          create: (_) => SanctuaryProvider(),
         ),
       ],
       child: const MyApp(),
@@ -69,7 +74,6 @@ class MyApp extends StatelessWidget {
 }
 
 // --- EL PORTERO (AUTH WRAPPER) ---
-// Este widget decide si mostrar la carga de inicio o el Dashboard
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -79,9 +83,6 @@ class AuthWrapper extends StatelessWidget {
 
     // Si aún no hay un usuario cargado en el Provider
     if (userProvider.currentUser == null) {
-      // ¡ELIMINAMOS la llamada a userProvider.signInAnonymously()!
-      // Ahora el UserProvider se encarga de esto automáticamente en segundo plano.
-
       return const Scaffold(
         body: Center(
           child: Column(
@@ -99,7 +100,7 @@ class AuthWrapper extends StatelessWidget {
       );
     }
 
-    // ¡Si ya tenemos usuario, entramos a la App!
-    return const AuthGate();
+// ¡Si ya tenemos usuario, entra al Guardián que decidirá si va al Setup o al Dashboard!
+  return const AuthGate();
   }
 }

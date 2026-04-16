@@ -7,7 +7,8 @@ import '../../providers/user_provider.dart';
 import 'goals/savings_goals_screen.dart';
 import 'goals/fixed_expenses_screen.dart';
 import 'goals/flexible_expenses_screen.dart';
-import 'budget_config_screen.dart'; // ¡Aquí importamos tu nueva pantalla!
+import 'budget_config_screen.dart';
+import 'package:finanzagt/data/models/debt_model.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
