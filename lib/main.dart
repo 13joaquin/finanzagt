@@ -8,7 +8,10 @@ import 'firebase_options.dart';
 // 1. Importamos tus Providers (¡Añadimos el nuevo!)
 import 'providers/user_provider.dart';
 import 'providers/transaction_provider.dart';
-import 'providers/sanctuary_provider.dart'; // <-- NUEVO: Importación del Santuario
+import 'providers/sanctuary_provider.dart';
+import 'providers/debt_provider.dart';
+import 'providers/GoalProvider.dart';
+import 'providers/ExpenseProvider.dart';// <-- NUEVO: Importación del Santuario
 
 // Importamos pantallas
 import 'package:finanzagt/screens/main_layout.dart';
@@ -42,9 +45,46 @@ void main() async {
             return txProvider!;
           },
         ),
+
         // Tienda 3: EL NUEVO CEREBRO DEL SANTUARIO <-- NUEVO
         ChangeNotifierProvider(
           create: (_) => SanctuaryProvider(),
+        ),
+
+        // Tienda 4: Maneja las Deudas
+        ChangeNotifierProxyProvider<UserProvider, DebtProvider>(
+          create: (_) => DebtProvider(),
+          update: (_, userProvider, debtProvider) {
+            final uid = userProvider.currentUser?.uid;
+            if (uid != null) {
+              // En cuanto hay un usuario, empezamos a leer sus deudas reales
+              debtProvider!.listenToDebts(uid);
+            }
+            return debtProvider!;
+          },
+        ),
+
+        // Tienda 5: Maneja las Metas de Ahorro
+        ChangeNotifierProxyProvider<UserProvider, GoalProvider>(
+          create: (_) => GoalProvider(),
+          update: (_, userProvider, goalProvider) {
+            final uid = userProvider.currentUser?.uid;
+            if (uid != null) {
+              goalProvider!.listenToGoals(uid);
+            }
+            return goalProvider!;
+          },
+        ),
+        // Tienda 6: Maneja los Gastos (Fijos y Flexibles)
+        ChangeNotifierProxyProvider<UserProvider, ExpenseProvider>(
+          create: (_) => ExpenseProvider(),
+          update: (_, userProvider, expenseProvider) {
+            final uid = userProvider.currentUser?.uid;
+            if (uid != null) {
+              expenseProvider!.listenToExpenses(uid);
+            }
+            return expenseProvider!;
+          },
         ),
       ],
       child: const MyApp(),
