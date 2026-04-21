@@ -43,21 +43,29 @@ class DebtProvider extends ChangeNotifier {
   Future<void> addDebt({
     required String name,
     required double totalAmount,
-    required DateTime dueDate,
   }) async {
     if (_userId == null) return;
+    await FirebaseFirestore.instance
+        .collection('users').doc(_userId)
+        .collection('debts').add({
+      'name': name,
+      'total_amount': totalAmount,
+      'remaining_amount': totalAmount, // Al inicio, se debe todo
+      'due_date': Timestamp.now(),
+      'is_paid_this_month': false,
+    });
+  }
+
+  Future<void> payInstallment(String debtId, double amount) async {
+    final debt = _debts.firstWhere((d) => d.id == debtId);
+    double newRemaining = debt.remainingAmount - amount;
+    if (newRemaining < 0) newRemaining = 0;
 
     await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_userId)
-        .collection('debts')
-        .add({
-      'name': name,
-      'totalAmount': totalAmount,
-      'remainingAmount': totalAmount, // Al inicio, debes todo el monto
-      'dueDate': Timestamp.fromDate(dueDate),
-      'isPaidThisMonth': false,
-      'createdAt': FieldValue.serverTimestamp(),
+        .collection('users').doc(_userId)
+        .collection('debts').doc(debtId).update({
+      'remaining_amount': newRemaining,
+      'is_paid_this_month': true,
     });
   }
 

@@ -11,7 +11,8 @@ import 'providers/transaction_provider.dart';
 import 'providers/sanctuary_provider.dart';
 import 'providers/debt_provider.dart';
 import 'providers/GoalProvider.dart';
-import 'providers/ExpenseProvider.dart';// <-- NUEVO: Importación del Santuario
+import 'providers/expenseProvider.dart';
+import 'providers/budget_provider.dart';// <-- NUEVO: Importación del Santuario
 
 // Importamos pantallas
 import 'package:finanzagt/screens/main_layout.dart';
@@ -34,7 +35,7 @@ void main() async {
           create: (_) => UserProvider(),
         ),
 
-        // Tienda 2: Maneja las Transacciones
+        // Tienda 2: Maneja las Transacciones (Lo conservamos por si lo usas en otras pantallas)
         ChangeNotifierProxyProvider<UserProvider, TransactionProvider>(
           create: (_) => TransactionProvider(),
           update: (_, userProvider, txProvider) {
@@ -46,25 +47,19 @@ void main() async {
           },
         ),
 
-        // Tienda 3: EL NUEVO CEREBRO DEL SANTUARIO <-- NUEVO
-        ChangeNotifierProvider(
-          create: (_) => SanctuaryProvider(),
-        ),
-
-        // Tienda 4: Maneja las Deudas
+        // Tienda 3: Maneja las Deudas
         ChangeNotifierProxyProvider<UserProvider, DebtProvider>(
           create: (_) => DebtProvider(),
           update: (_, userProvider, debtProvider) {
             final uid = userProvider.currentUser?.uid;
             if (uid != null) {
-              // En cuanto hay un usuario, empezamos a leer sus deudas reales
               debtProvider!.listenToDebts(uid);
             }
             return debtProvider!;
           },
         ),
 
-        // Tienda 5: Maneja las Metas de Ahorro
+        // Tienda 4: Maneja las Metas de Ahorro
         ChangeNotifierProxyProvider<UserProvider, GoalProvider>(
           create: (_) => GoalProvider(),
           update: (_, userProvider, goalProvider) {
@@ -75,7 +70,8 @@ void main() async {
             return goalProvider!;
           },
         ),
-        // Tienda 6: Maneja los Gastos (Fijos y Flexibles)
+
+        // Tienda 5: Maneja los Gastos (Fijos y Flexibles)
         ChangeNotifierProxyProvider<UserProvider, ExpenseProvider>(
           create: (_) => ExpenseProvider(),
           update: (_, userProvider, expenseProvider) {
@@ -84,6 +80,32 @@ void main() async {
               expenseProvider!.listenToExpenses(uid);
             }
             return expenseProvider!;
+          },
+        ),
+
+        // Tienda 6: Maneja el Presupuesto General y Límites
+        ChangeNotifierProxyProvider<UserProvider, BudgetProvider>(
+          create: (_) => BudgetProvider(),
+          update: (_, userProvider, budgetProvider) {
+            final uid = userProvider.currentUser?.uid;
+            if (uid != null) {
+              budgetProvider!.listenToBudget(uid);
+            }
+            return budgetProvider!;
+          },
+        ),
+
+        // Tienda 7: EL GRAN CABLEADO DEL SANTUARIO <-- AHORA AL FINAL
+        // Escucha automáticamente a: Metas (Goal), Deudas (Debt) y Gastos (Expense)
+        ChangeNotifierProxyProvider3<GoalProvider, DebtProvider, ExpenseProvider, SanctuaryProvider>(
+          create: (_) => SanctuaryProvider(),
+          update: (_, goalProv, debtProv, expenseProv, sanctuary) {
+            // Cada vez que ahorres, pagues una deuda o gastes, esta función se dispara sola
+            return sanctuary!..updateFromProviders(
+              goals: goalProv.goals,
+              debts: debtProv.debts,
+              totalExpenses: expenseProv.totalFixedAmount + expenseProv.totalFlexibleAmount,
+            );
           },
         ),
       ],

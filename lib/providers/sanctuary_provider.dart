@@ -1,7 +1,9 @@
 // Archivo: lib/providers/sanctuary_provider.dart
 import 'package:flutter/material.dart';
+import '../data/models/goal_model.dart';
+import '../data/models/debt_model.dart';
 
-// 1. Definimos los "Estados" posibles para que sea fácil leer el código
+// 1. Definimos los "Estados" posibles
 enum TreeStage { seed, sprout, youngTree, fullTree, blooming }
 enum WeatherState { sunny, cloudy, rainy }
 
@@ -14,44 +16,46 @@ class SanctuaryProvider extends ChangeNotifier {
   TreeStage get treeStage => _treeStage;
   WeatherState get weatherState => _weatherState;
 
-  // 2. LA FUNCIÓN PRINCIPAL: Actualiza todo el ecosistema
-  // Esta función la llamaremos cada vez que el usuario agregue un gasto o un ahorro
-  void updateSanctuary({
-    required List<Map<String, dynamic>> activeGoals, // Lista de metas
-    required double totalIncome,                     // Ingresos del mes
-    required double totalExpenses,                   // Gastos del mes
+  // 2. LA FUNCIÓN PRINCIPAL (El Gran Cableado)
+  void updateFromProviders({
+    required List<GoalModel> goals,
+    required List<DebtModel> debts,
+    required double totalExpenses,
   }) {
-    _calculateTreeStage(activeGoals);
-    _calculateWeather(totalIncome, totalExpenses);
+    // ¡Actualizado! Ahora le pasamos ambas listas al árbol
+    _calculateTreeStage(goals, debts);
+    _calculateWeather(debts, totalExpenses);
 
-    // Le avisa a la pantalla que los cálculos cambiaron para que se redibuje
+    // Le avisa a la pantalla visual que los cálculos cambiaron
     notifyListeners();
   }
 
-  // 3. FÓRMULA DE VITALIDAD GLOBAL (El Árbol)
-  void _calculateTreeStage(List<Map<String, dynamic>> goals) {
-    if (goals.isEmpty) {
+  // 3. FÓRMULA DE VITALIDAD GLOBAL ACTUALIZADA (Metas + Deudas)
+  void _calculateTreeStage(List<GoalModel> goals, List<DebtModel> debts) {
+    int totalItems = goals.length + debts.length;
+
+    // Si el usuario no tiene metas ni deudas registradas, el árbol es una semilla
+    if (totalItems == 0) {
       _treeStage = TreeStage.seed;
       return;
     }
 
     double totalProgress = 0.0;
 
-    // Sumamos el progreso de cada meta
+    // A) Sumamos el progreso de cada meta
     for (var goal in goals) {
-      double saved = goal['saved'] ?? 0.0;
-      double target = goal['target'] ?? 1.0; // Para evitar división por 0
-
-      double progress = saved / target;
-      if (progress > 1.0) progress = 1.0; // Tope máximo de 100%
-
-      totalProgress += progress;
+      totalProgress += goal.progress;
     }
 
-    // Promedio Ponderado de Vitalidad
-    double averageVitality = totalProgress / goals.length;
+    // B) Sumamos el progreso de cada deuda (usando paymentProgress)
+    for (var debt in debts) {
+      totalProgress += debt.paymentProgress;
+    }
 
-    // Asignamos la etapa según el porcentaje
+    // C) Promedio Ponderado de Vitalidad (La suma de ambos mundos)
+    double averageVitality = totalProgress / totalItems;
+
+    // Evaluamos el crecimiento del árbol basándonos en la vitalidad conjunta
     if (averageVitality < 0.1) {
       _treeStage = TreeStage.seed;         // 0% - 10%
     } else if (averageVitality < 0.35) {
@@ -61,32 +65,20 @@ class SanctuaryProvider extends ChangeNotifier {
     } else if (averageVitality < 0.99) {
       _treeStage = TreeStage.fullTree;     // 71% - 99%
     } else {
-      _treeStage = TreeStage.blooming;     // 100% (¡Meta cumplida!)
+      _treeStage = TreeStage.blooming;     // 100% (¡Metas cumplidas y Deudas pagadas!)
     }
   }
 
-  // 4. FÓRMULA DEL CLIMA (Salud Financiera Mensual)
-  void _calculateWeather(double income, double expenses) {
-    // Si no hay ingresos pero sí hay gastos -> Tormenta automática
-    if (income == 0 && expenses > 0) {
-      _weatherState = WeatherState.rainy;
-      return;
-    }
-    // Si la cuenta está en cero sin movimientos -> Día soleado por defecto
-    else if (income == 0 && expenses == 0) {
-      _weatherState = WeatherState.sunny;
-      return;
-    }
+  // 4. FÓRMULA DEL CLIMA (Adaptada a las deudas y gastos)
+  void _calculateWeather(List<DebtModel> debts, double expenses) {
+    bool hasPendingDebts = debts.any((d) => !d.isPaidThisMonth && d.remainingAmount > 0);
 
-    // Índice de Salud Mensual
-    double surplusMargin = 1 - (expenses / income);
-
-    if (surplusMargin > 0.2) {
-      _weatherState = WeatherState.sunny;  // Ahorra más del 20% (Bonanza)
-    } else if (surplusMargin >= 0.0) {
-      _weatherState = WeatherState.cloudy; // Vive al día (Alerta gris)
+    if (hasPendingDebts) {
+      _weatherState = WeatherState.cloudy; // Deudas sin abonar este mes = Nublado
+    } else if (expenses > 0 && debts.isNotEmpty) {
+      _weatherState = WeatherState.rainy;  // Gastos mientras hay deudas = Lluvia
     } else {
-      _weatherState = WeatherState.rainy;  // Gasta más de lo que gana (Crisis)
+      _weatherState = WeatherState.sunny;  // Todo bajo control = Soleado
     }
   }
 }
