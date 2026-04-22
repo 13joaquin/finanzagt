@@ -1,9 +1,11 @@
 // Archivo: lib/providers/budget_provider.dart
+import 'dart:async'; // Para manejar la suscripción
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BudgetProvider extends ChangeNotifier {
   String? _userId;
+  StreamSubscription? _budgetSubscription;
 
   // Variables principales del presupuesto
   double _monthlyIncome = 0.0;
@@ -17,31 +19,42 @@ class BudgetProvider extends ChangeNotifier {
   double get limitWants => _limitWants;
   double get limitSavings => _limitSavings;
 
-  // --- LEER: Escuchar la configuración del usuario en Firebase ---
-  void listenToBudget(String uid) {
+  // --- 1. EL MOTOR: Escuchar la configuración en tiempo real (Blindado) ---
+  void updateUser(String? uid) {
+    // Si el usuario no ha cambiado, no reiniciamos el stream
+    if (_userId == uid) return;
+
     _userId = uid;
 
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .listen((snapshot) {
+    // Cancelamos cualquier escucha anterior por seguridad
+    _budgetSubscription?.cancel();
 
-      if (snapshot.exists && snapshot.data() != null) {
-        final data = snapshot.data()!;
+    if (uid != null) {
+      _budgetSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .listen((snapshot) {
 
-        _monthlyIncome = (data['monthly_income'] ?? 0).toDouble();
-        _limitNeeds = (data['limit_needs'] ?? 0).toDouble();
-        _limitWants = (data['limit_wants'] ?? 0).toDouble();
-        _limitSavings = (data['limit_savings'] ?? 0).toDouble();
+        if (snapshot.exists && snapshot.data() != null) {
+          final data = snapshot.data()!;
 
-        // Avisamos a la pantalla de Presupuesto que los límites han cambiado
-        notifyListeners();
-      }
-    });
+          _monthlyIncome = (data['monthly_income'] ?? 0).toDouble();
+          _limitNeeds = (data['limit_needs'] ?? 0).toDouble();
+          _limitWants = (data['limit_wants'] ?? 0).toDouble();
+          _limitSavings = (data['limit_savings'] ?? 0).toDouble();
+
+          notifyListeners(); // Actualiza el Dashboard e ingresos
+        }
+      });
+    } else {
+      // Limpiamos datos si no hay usuario
+      _monthlyIncome = 0.0;
+      notifyListeners();
+    }
   }
 
-  // --- ACTUALIZAR: Guardar nueva configuración de ingresos ---
+  // --- 2. ACCIÓN: Guardar nueva configuración de ingresos ---
   Future<void> updateIncomeAndLimits(double newIncome) async {
     if (_userId == null) return;
 
@@ -50,11 +63,21 @@ class BudgetProvider extends ChangeNotifier {
     double wants = newIncome * 0.30;
     double savings = newIncome * 0.20;
 
-    await FirebaseFirestore.instance.collection('users').doc(_userId).update({
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_userId)
+        .set({
       'monthly_income': newIncome,
       'limit_needs': needs,
       'limit_wants': wants,
       'limit_savings': savings,
-    });
+    }, SetOptions(merge: true)); // Usamos merge para no borrar otros datos del usuario
+  }
+
+  // Muy importante: Cerramos la conexión cuando el Provider se destruye
+  @override
+  void dispose() {
+    _budgetSubscription?.cancel();
+    super.dispose();
   }
 }

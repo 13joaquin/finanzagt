@@ -1,13 +1,15 @@
+// Archivo: lib/screens/dashboard/dashboard_screen.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // IMPORTANTE
-import 'package:fl_chart/fl_chart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart'; // Gráficos de Flujo de Caja
 import 'package:intl/intl.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 
+// --- NUEVOS PROVIDERS (Reemplazan a TransactionProvider) ---
 import '../../providers/user_provider.dart';
-import '../../providers/transaction_provider.dart';
-import '../../data/repositories/transaction_repository.dart';
+import '../../providers/budget_provider.dart';
+import '../../providers/expenseProvider.dart'; // Asegúrate de que el nombre de este archivo sea exacto
+import '../../data/models/expense_model.dart';
 import '../profile/profile_screen.dart';
 
 class MainDashboardScreen extends StatefulWidget {
@@ -18,44 +20,7 @@ class MainDashboardScreen extends StatefulWidget {
 }
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
-  String _searchQuery = '';
-  String _selectedFilterCategory = 'Todas';
   final NumberFormat currencyFormat = NumberFormat('#,##0.00', 'en_US');
-  final TextEditingController _searchController = TextEditingController();
-
-  final TransactionRepository _transactionRepo = TransactionRepository();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _deleteTransaction(String docId, double amount, bool isExpense) async {
-    try {
-      final currentUser = Provider.of<UserProvider>(context, listen: false).currentUser;
-      if (currentUser == null) return;
-
-      await _transactionRepo.deleteTransaction(
-        userId: currentUser.uid,
-        docId: docId,
-        amount: amount,
-        isExpense: isExpense,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transacción eliminada'), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al eliminar'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,14 +41,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Cabecera
+                // --- 1. CABECERA ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Hola, ${currentUser.displayName}',
+                        Text('Hola, ${currentUser.displayName ?? "Usuario"}',
                             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
                         Text('Tu panorama financiero hoy', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                       ],
@@ -96,131 +61,92 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 ),
                 const SizedBox(height: 25),
 
-                // --- NUEVO PANELES DE SALDO CON STREAMBUILDER ---
-                StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance.collection('users').doc(currentUser.uid).snapshots(), // Escucha en tiempo real
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || !snapshot.data!.exists) {
-                        return const Text("Error al cargar saldos");
-                      }
+                // --- 2. EL GRAN CABLEADO DEL DASHBOARD (CONSUMER DOBLE) ---
+                Consumer2<BudgetProvider, ExpenseProvider>(
+                  builder: (context, budget, expense, child) {
 
-                      var userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-                      double safeBalance = (userData['safe_balance'] ?? 0.0).toDouble();
-                      double netWorth = (userData['net_worth'] ?? 0.0).toDouble();
+                    // SOLUCIÓN ERROR 1:
+                    // Cambia "monthlyIncome" por el nombre exacto que tengas en tu BudgetProvider
+                    // (Ej. budget.income, budget.totalBudget, budget.ingresoMensual)
+                    double totalIncome = budget.monthlyIncome;
 
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                    color: safeBalance >= 0 ? greenColor : Colors.redAccent,
-                                    borderRadius: BorderRadius.circular(16)
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('SEGURO PARA GASTAR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    Text('Q${currencyFormat.format(safeBalance)}', // Dato dinámico
-                                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('PATRIMONIO NETO', style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)),
-                                  Text('Q${currencyFormat.format(netWorth)}', // Dato dinámico
-                                      style: TextStyle(color: Colors.blueGrey[900], fontSize: 18, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                ),
+                    double totalExpenses = expense.totalFixedAmount + expense.totalFlexibleAmount;
+                    double safeToSpend = totalIncome - totalExpenses;
 
-                const SizedBox(height: 25),
-
-                // Sección de Transacciones
-                Consumer<TransactionProvider>(
-                  builder: (context, txProvider, child) {
-                    if (txProvider.isLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final filteredDocs = txProvider.transactions.where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final title = (data['title'] ?? '').toString().toLowerCase();
-                      final category = data['category'] ?? '';
-
-                      final matchesSearch = title.contains(_searchQuery);
-                      final matchesCat = _selectedFilterCategory == 'Todas' || category == _selectedFilterCategory;
-
-                      return matchesSearch && matchesCat;
-                    }).toList();
+                    List<ExpenseModel> allActivity = [...expense.fixedExpenses, ...expense.flexibleExpenses];
+                    allActivity.sort((a, b) => b.date.compareTo(a.date));
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildChart(txProvider.totalIncome, txProvider.totalExpense, greenColor),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                      color: safeToSpend >= 0 ? greenColor : Colors.redAccent,
+                                      borderRadius: BorderRadius.circular(16)
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('SEGURO PARA GASTAR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      Text('Q${currencyFormat.format(safeToSpend)}',
+                                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('INGRESOS DEL MES', style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)),
+                                    Text('Q${currencyFormat.format(totalIncome)}',
+                                        style: TextStyle(color: Colors.blueGrey[900], fontSize: 18, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
                         const SizedBox(height: 25),
-                        Text('Actividad', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+
+                        _buildChart(totalIncome, totalExpenses, greenColor),
+
+                        const SizedBox(height: 25),
+                        Text('Actividad Reciente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
                         const SizedBox(height: 15),
 
-                        _buildFilterBar(txProvider.categories),
-
-                        const SizedBox(height: 15),
-
-                        if (filteredDocs.isEmpty)
-                          const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay movimientos", style: TextStyle(color: Colors.grey))))
+                        if (allActivity.isEmpty)
+                          const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay movimientos registrados", style: TextStyle(color: Colors.grey))))
                         else
                           ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: filteredDocs.length,
+                            itemCount: allActivity.length > 5 ? 5 : allActivity.length,
                             itemBuilder: (context, index) {
-                              final doc = filteredDocs[index];
-                              final data = doc.data() as Map<String, dynamic>;
-                              final amt = (data['amount'] ?? 0).toDouble();
-                              final isExp = data['is_expense'] ?? true;
-                              final date = data['date'] != null ? (data['date'] as Timestamp).toDate() : DateTime.now();
+                              final item = allActivity[index];
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 10.0),
-                                child: Slidable(
-                                  key: ValueKey(doc.id),
-                                  endActionPane: ActionPane(
-                                    motion: const DrawerMotion(),
-                                    children: [
-                                      SlidableAction(
-                                        onPressed: (_) => _deleteTransaction(doc.id, amt, isExp),
-                                        backgroundColor: Colors.redAccent,
-                                        icon: Icons.delete,
-                                        label: 'Borrar',
-                                        borderRadius: BorderRadius.circular(15),
-                                      ),
-                                    ],
-                                  ),
-                                  child: _buildTransactionItem(
-                                    title: data['title'] ?? 'Sin título',
-                                    subtitle: "${data['category']} • ${DateFormat('dd/MM').format(date)}",
-                                    amount: "${isExp ? '-' : '+'}Q${currencyFormat.format(amt)}",
-                                    icon: isExp ? Icons.arrow_outward_rounded : Icons.call_received_rounded,
-                                    iconColor: isExp ? Colors.redAccent : greenColor,
-                                    isExpense: isExp,
-                                  ),
+                                child: _buildTransactionItem(
+                                  // SOLUCIÓN ERROR 2:
+                                  // Asumimos que se llama "name". Si te sigue dando error,
+                                  // revisa tu expense_model.dart. Podría ser "description" o "merchantName".
+                                  title: item.name,
+
+                                  subtitle: "${item.category} • ${DateFormat('dd/MM').format(item.date)}",
+                                  amount: "-Q${currencyFormat.format(item.amount)}",
+                                  icon: Icons.arrow_outward_rounded,
+                                  iconColor: Colors.redAccent,
+                                  isExpense: true,
                                 ),
                               );
                             },
@@ -246,7 +172,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
       child: BarChart(BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: (income > expense ? income : expense) * 1.2 + 100,
+        maxY: (income > expense ? income : expense) * 1.2 + 100, // Margen superior
         barGroups: [
           BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: income, color: green, width: 30)]),
           BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: expense, color: Colors.orange, width: 30)]),
@@ -261,37 +187,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
       )),
-    );
-  }
-
-  Widget _buildFilterBar(List<String> categories) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: TextField(
-            controller: _searchController,
-            onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-            decoration: InputDecoration(hintText: 'Buscar...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: categories.contains(_selectedFilterCategory) ? _selectedFilterCategory : 'Todas',
-                isExpanded: true,
-                items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
-                onChanged: (v) => setState(() => _selectedFilterCategory = v ?? 'Todas'),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
