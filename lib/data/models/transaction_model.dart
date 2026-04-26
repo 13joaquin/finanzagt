@@ -1,52 +1,55 @@
-// Archivo: lib/data/models/transaction_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TransactionModel {
   final String id;
+  final String name;
   final double amount;
-  final String type; // 'expense' o 'income'
-  final String category;
-  final String merchantName; // En el MVP lo llamamos 'title'
   final DateTime date;
-  final bool isRecurring;
-  final String? notes;
+
+  // 'income' (Ingreso), 'expense' (Gasto), 'saving' (Ahorro/Santuario)
+  final String type;
+
+  final String category;
+
+  // Campos opcionales para vincular con otros hijos
+  final String? goalId; // Si es un ahorro para el Santuario
+  final String? debtId; // Si es un pago a una deuda
 
   TransactionModel({
     required this.id,
+    required this.name,
     required this.amount,
+    required this.date,
     required this.type,
     required this.category,
-    required this.merchantName,
-    required this.date,
-    this.isRecurring = false,
-    this.notes,
+    this.goalId,
+    this.debtId,
   });
 
-  factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
-
+  // Convertir de Map (Firebase) a Objeto (Dart)
+  factory TransactionModel.fromMap(Map<String, dynamic> map, String documentId) {
     return TransactionModel(
-      id: doc.id,
-      amount: (data['amount'] ?? 0).toDouble(),
-      // Mapeamos el booleano antiguo a los tipos formales de la arquitectura
-      type: data['is_expense'] == true ? 'expense' : 'income',
-      category: data['category'] ?? 'General',
-      merchantName: data['title'] ?? 'Sin título',
-      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      isRecurring: data['isRecurring'] ?? false,
-      notes: data['notes'],
+      id: documentId,
+      name: map['name'] ?? '',
+      amount: (map['amount'] ?? 0.0).toDouble(),
+      date: (map['date'] as Timestamp).toDate(),
+      type: map['type'] ?? 'expense',
+      category: map['category'] ?? 'General',
+      goalId: map['goalId'],
+      debtId: map['debtId'],
     );
   }
 
-  Map<String, dynamic> toFirestore() {
+  // Convertir de Objeto (Dart) a Map (Firebase)
+  Map<String, dynamic> toMap() {
     return {
+      'name': name,
       'amount': amount,
-      'is_expense': type == 'expense', // Mantenemos compatibilidad con el MVP
-      'category': category,
-      'title': merchantName,
       'date': Timestamp.fromDate(date),
-      'isRecurring': isRecurring,
-      'notes': notes,
+      'type': type,
+      'category': category,
+      'goalId': goalId,
+      'debtId': debtId,
     };
   }
 }

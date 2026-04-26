@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../providers/user_provider.dart';
-import '../../data/repositories/transaction_repository.dart';
-import '../../data/models/transaction_model.dart';
+
+// Importamos los nuevos "motores" y modelos
+import '../../providers/expenseProvider.dart';
+import '../../providers/budget_provider.dart';
+import '../../data/models/expense_model.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String? editDocId;
@@ -27,98 +28,66 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
 
-  List<String> _expenseCategories = ['Comida', 'Transporte', 'Vivienda', 'Ocio/Flexible'];
-  List<String> _incomeCategories = ['Salario', 'Ventas', 'Otros'];
-
-  final TransactionRepository _transactionRepo = TransactionRepository();
+  final List<String> _expenseCategories = ['Comida', 'Transporte', 'Vivienda', 'Ocio/Flexible'];
+  final List<String> _incomeCategories = ['Salario', 'Ventas', 'Otros'];
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserCategories();
-    });
-
-    if (widget.editDocId != null && widget.editData != null) {
-      _isExpense = widget.editData!['type'] == 'expense';
-      _selectedCategory = widget.editData!['category'];
-      _noteController.text = widget.editData!['merchantName'] ?? widget.editData!['title'] ?? '';
-      double amt = (widget.editData!['amount'] ?? 0).toDouble();
-      _amountController.text = _amountFormatter.formatDouble(amt);
-      if (widget.editData!['date'] != null) {
-        _selectedDate = (widget.editData!['date'] as Timestamp).toDate();
-      }
-    }
+  void dispose() {
+    _noteController.dispose();
+    _amountController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadUserCategories() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final uid = userProvider.currentUser?.uid;
-
-    if (uid == null) return;
-
-    try {
-      final categories = await _transactionRepo.getUserCategories(uid);
-      if (categories.isNotEmpty) {
-        setState(() {
-          _expenseCategories = categories.where((c) => c != 'Salario' && c != 'Ventas' && c != 'Otros').toList();
-          _incomeCategories = categories.where((c) => c == 'Salario' || c == 'Ventas' || c == 'Otros').toList();
-        });
-      }
-    } catch (e) {
-      debugPrint("Error cargando categorías: $e");
-    }
-  }
-
+  // --- EL NUEVO MÉTODO DE GUARDADO ---
   Future<void> _saveTransaction() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final uid = userProvider.currentUser?.uid;
+    final String amountText = _amountController.text.replaceAll(',', '');
+    final double amount = double.tryParse(amountText) ?? 0;
 
-    if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Usuario no identificado")));
-      return;
-    }
-
-    if (_amountController.text.isEmpty || _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Por favor selecciona categoría y monto")));
+    if (amount <= 0 || _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Por favor, ingresa un monto y selecciona una categoría")),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final double amount = _amountFormatter.getUnformattedValue().toDouble();
+      if (_isExpense) {
+        // 1. Guardar como GASTO en el ExpenseProvider
+        // Determinamos si es fijo o flexible (Ocio es flexible)
+        bool isFixed = _selectedCategory != 'Ocio/Flexible';
 
-      // CORRECCIÓN: Usamos merchantName como lo exige el modelo
-      final transaction = TransactionModel(
-        id: widget.editDocId ?? '',
-        merchantName: _noteController.text.isEmpty ? _selectedCategory! : _noteController.text,
-        amount: amount,
-        date: _selectedDate,
-        category: _selectedCategory!,
-        type: _isExpense ? 'expense' : 'income',
-      );
-
-      // CORRECCIÓN: Llamamos a addTransaction y updateTransaction que ahora sí existen
-      if (widget.editDocId == null) {
-        await _transactionRepo.addTransaction(uid, transaction);
+        await Provider.of<ExpenseProvider>(context, listen: false).addExpense(
+          name: _noteController.text.isEmpty ? "Gasto sin nombre" : _noteController.text,
+          amount: amount,
+          isFixed: isFixed,
+          category: _selectedCategory!,
+        );
       } else {
-        await _transactionRepo.updateTransaction(uid, widget.editDocId!, transaction);
+        // 2. Guardar como INGRESO en el BudgetProvider
+        // Nota: Actualmente tu BudgetProvider sobreescribe el total.
+        await Provider.of<BudgetProvider>(context, listen: false).updateIncomeAndLimits(amount);
       }
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al guardar: $e")),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = _isExpense ? Colors.redAccent : Colors.green;
+    Color activeColor = _isExpense ? Colors.redAccent : Colors.green;
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.editDocId == null ? "Nueva Transacción" : "Editar"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
+      appBar: AppBar(title: Text(widget.editDocId == null ? "Nuevo Registro" : "Editar Registro")),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -133,30 +102,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: 30),
             TextField(
               controller: _amountController,
-              keyboardType: TextInputType.number,
               inputFormatters: [_amountFormatter],
+              keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: activeColor),
-              decoration: const InputDecoration(hintText: '0.00', border: InputBorder.none),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: (_isExpense ? _expenseCategories : _incomeCategories).map((c) => ChoiceChip(
-                label: Text(c),
-                selected: _selectedCategory == c,
-                onSelected: (s) => setState(() => _selectedCategory = c),
-                selectedColor: activeColor.withOpacity(0.2),
-              )).toList(),
+              decoration: const InputDecoration(hintText: "0.00", border: InputBorder.none),
             ),
             const SizedBox(height: 20),
-            TextField(controller: _noteController, decoration: const InputDecoration(hintText: 'Descripción (Opcional)', prefixIcon: Icon(Icons.edit))),
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              hint: const Text("Seleccionar Categoría"),
+              items: (_isExpense ? _expenseCategories : _incomeCategories)
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              onChanged: (v) => setState(() => _selectedCategory = v),
+              decoration: InputDecoration(filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: _noteController,
+              decoration: InputDecoration(hintText: "Nota / Descripción", filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+            ),
             const SizedBox(height: 15),
             ListTile(
               leading: const Icon(Icons.calendar_today),
-              title: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+              title: Text(DateFormat('dd / MM / yyyy').format(_selectedDate)),
               onTap: () async {
-                DateTime? picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+                final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
                 if (picked != null) setState(() => _selectedDate = picked);
               },
               tileColor: Colors.grey[100],

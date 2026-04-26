@@ -9,6 +9,11 @@ class ExpenseProvider extends ChangeNotifier {
   String? _userId;
   StreamSubscription? _expenseSubscription;
 
+  // --- ¡AQUÍ ESTÁN LOS GETTERS CORREGIDOS PARA EL DASHBOARD! ---
+
+  // 1. Agregamos el puente público para la lista completa de gastos
+  List<ExpenseModel> get expenses => _expenses;
+
   // Obtener solo gastos fijos
   List<ExpenseModel> get fixedExpenses =>
       _expenses.where((e) => e.isFixed).toList();
@@ -16,6 +21,20 @@ class ExpenseProvider extends ChangeNotifier {
   // Obtener solo gastos flexibles
   List<ExpenseModel> get flexibleExpenses =>
       _expenses.where((e) => !e.isFixed).toList();
+
+  // --- CÁLCULOS PARA EL DASHBOARD Y EL SANTUARIO ---
+
+  // 2. Renombramos 'totalFixedAmount' a 'totalFixedExpenses'
+  double get totalFixedExpenses =>
+      fixedExpenses.fold(0, (sum, item) => sum + item.amount);
+
+  // 3. Renombramos 'totalFlexibleAmount' a 'totalFlexibleExpenses'
+  double get totalFlexibleExpenses =>
+      flexibleExpenses.fold(0, (sum, item) => sum + item.amount);
+
+  // Total general actualizado con los nuevos nombres
+  double get totalAllExpenses => totalFixedExpenses + totalFlexibleExpenses;
+
 
   // --- 1. LEER: Escuchar gastos en tiempo real (NUEVO MOTOR) ---
   void updateUser(String? uid) {
@@ -68,15 +87,6 @@ class ExpenseProvider extends ChangeNotifier {
       'date': Timestamp.now(),
     });
   }
-
-  // --- CÁLCULOS PARA EL SANTUARIO ---
-  double get totalFixedAmount =>
-      fixedExpenses.fold(0, (sum, item) => sum + item.amount);
-
-  double get totalFlexibleAmount =>
-      flexibleExpenses.fold(0, (sum, item) => sum + item.amount);
-
-  double get totalAllExpenses => totalFixedAmount + totalFlexibleAmount;
 
   // Cuando la app se cierra, apagamos el radar
   @override

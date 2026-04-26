@@ -97,7 +97,7 @@ class DebtsScreen extends StatelessWidget {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () {
-              provider.payInstallment(debt.id, double.parse(amountController.text));
+              provider.payDebt(debt.id, double.parse(amountController.text));
               Navigator.pop(context);
             },
             child: const Text("Confirmar Pago"),

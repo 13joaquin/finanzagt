@@ -13,6 +13,7 @@ import 'providers/debt_provider.dart';
 import 'providers/GoalProvider.dart';
 import 'providers/expenseProvider.dart';
 import 'providers/budget_provider.dart';
+import 'providers/transaction_provider.dart'; // <-- Agrega esta línea
 
 // Importamos pantallas
 import 'package:finanzagt/screens/auth/auth_gate.dart';
@@ -36,6 +37,19 @@ void main() async {
         // NUEVOS PROVEEDORES ESPECIALIZADOS (Sustituyen a TransactionProvider)
         ChangeNotifierProvider(create: (_) => GoalProvider()),
         ChangeNotifierProvider(create: (_) => DebtProvider()),
+
+        // EL NUEVO CEREBRO: TransactionProvider (Maneja ingresos, gastos y ahorros)
+        ChangeNotifierProxyProvider<UserProvider, TransactionProvider>(
+          create: (_) => TransactionProvider(),
+          update: (_, userProvider, transactionProvider) {
+            final uid = userProvider.currentUser?.uid;
+            if (uid != null) {
+              // Le pasamos el ID del usuario para que descargue sus transacciones
+              transactionProvider!..listenToTransactions(uid);
+            }
+            return transactionProvider!;
+          },
+        ),
         // Tienda 5: Maneja los Gastos (¡Ahora enciende automáticamente!)
         ChangeNotifierProxyProvider<UserProvider, ExpenseProvider>(
           create: (_) => ExpenseProvider(),
