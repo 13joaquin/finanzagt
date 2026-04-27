@@ -4,11 +4,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// Importamos los nuevos "motores"
+
+// Importamos los motores
 import '../../providers/user_provider.dart';
-import '../../providers/budget_provider.dart';
-import '../../providers/expenseProvider.dart';
-import '../../data/models/expense_model.dart';
+import '../../providers/transaction_provider.dart';
+import '../../data/models/transaction_model.dart';
 
 import '../profile/profile_screen.dart';
 
@@ -24,22 +24,21 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. ESCUCHAMOS LOS PROVIDERS (Aquí es donde ocurre la magia)
+    // 1. ESCUCHAMOS LOS PROVIDERS
     final userProvider = Provider.of<UserProvider>(context);
-    final budgetProvider = Provider.of<BudgetProvider>(context);
-    final expenseProvider = Provider.of<ExpenseProvider>(context);
-
     final currentUser = userProvider.currentUser;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // 2. CÁLCULOS EN TIEMPO REAL
-    double income = budgetProvider.monthlyIncome;
-    // Sumamos todos los gastos (fijos + flexibles)
-    double totalExpenses = expenseProvider.totalFixedExpenses + expenseProvider.totalFlexibleExpenses;
-    double netWorth = income - totalExpenses;
+    // 1.5 ESCUCHAMOS AL NUEVO CEREBRO (TransactionProvider)
+    final transactionProvider = Provider.of<TransactionProvider>(context);
+
+    // 2. CÁLCULOS EN TIEMPO REAL (Usando el nuevo cerebro)
+    double income = transactionProvider.totalIncomes;
+    double totalExpenses = transactionProvider.totalExpenses;
+    double netWorth = transactionProvider.netWorth;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -71,15 +70,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             const Text("Actividad Reciente", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            // LISTA DE ACTIVIDAD (Usando los gastos del provider)
-            _buildRecentActivity(expenseProvider.expenses),
+            // AQUÍ ESTABA EL ERROR: Ahora le pasamos el transactionProvider
+            _buildRecentActivity(transactionProvider),
           ],
         ),
       ),
     );
   }
 
-  // --- COMPONENTES DE LA INTERFAZ ---
+  // --- COMPONENTES DE LA INTERFAZ (Tu diseño intacto) ---
 
   Widget _buildNetWorthCard(double amount) {
     return Container(
@@ -122,7 +121,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: (inAmt > outAmt ? inAmt : outAmt) * 1.2,
+          maxY: (inAmt > outAmt ? inAmt : outAmt) * 1.2 == 0 ? 100 : (inAmt > outAmt ? inAmt : outAmt) * 1.2, // Evitar error si todo está en 0
           barGroups: [
             BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: inAmt, color: Colors.green, width: 25, borderRadius: BorderRadius.circular(6))]),
             BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: outAmt, color: Colors.redAccent, width: 25, borderRadius: BorderRadius.circular(6))]),
@@ -140,33 +139,67 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _buildRecentActivity(List<ExpenseModel> expenses) {
-    if (expenses.isEmpty) {
+  Widget _buildRecentActivity(TransactionProvider provider) {
+    final transactions = provider.transactions;
+
+    if (transactions.isEmpty) {
       return const Center(child: Text("No hay movimientos este mes", style: TextStyle(color: Colors.grey)));
     }
 
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: expenses.length > 5 ? 5 : expenses.length,
+      itemCount: transactions.length > 5 ? 5 : transactions.length, // Mostramos los últimos 5
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final item = expenses[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: (item.isFixed ? Colors.orange : Colors.blue).withOpacity(0.1),
-            child: Icon(item.isFixed ? Icons. push_pin : Icons.shopping_bag, color: item.isFixed ? Colors.orange : Colors.blue, size: 18),
+        final item = transactions[index];
+        final isIncome = item.type == 'income'; // Verificamos si es ingreso
+
+        // EL SOBRE MÁGICO: Dismissible (Deslizar para eliminar)
+        return Dismissible(
+          key: Key(item.id), // Firebase ID
+          direction: DismissDirection.endToStart, // Solo deslizar de derecha a izquierda
+          background: Container(
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            child: const Icon(Icons.delete, color: Colors.white),
           ),
-          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(DateFormat('dd MMM').format(item.date)),
-          trailing: Text("-Q${currencyFormat.format(item.amount)}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          onDismissed: (direction) {
+            // Le decimos al motor que borre el documento de Firebase
+            provider.deleteTransaction(item.id);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Movimiento eliminado")),
+            );
+          },
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: (isIncome ? Colors.green : Colors.redAccent).withOpacity(0.1),
+              child: Icon(
+                  isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: isIncome ? Colors.green : Colors.redAccent,
+                  size: 18
+              ),
+            ),
+            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(DateFormat('dd MMM').format(item.date)),
+            trailing: Text(
+              "${isIncome ? '+' : '-'}Q${currencyFormat.format(item.amount)}",
+              style: TextStyle(
+                  color: isIncome ? Colors.green : Colors.redAccent,
+                  fontWeight: FontWeight.bold
+              ),
+            ),
+          ),
         );
       },
     );
   }
 
   PreferredSizeWidget _buildAppBar(UserProvider userProvider) {
-    // Obtenemos el nombre del usuario o un "Hola" por defecto
     final String userName = userProvider.currentUser?.displayName ?? "Usuario";
 
     return AppBar(
@@ -181,7 +214,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.redAccent),
           onPressed: () async {
-            // Lógica para cerrar sesión
             await FirebaseAuth.instance.signOut();
           },
         ),

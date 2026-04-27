@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// Importamos los nuevos "motores"
+// Importamos los NUEVOS motores y modelos
 import '../../../providers/user_provider.dart';
-import '../../../providers/expenseProvider.dart';
-import '../../../data/models/expense_model.dart';
+import '../../../providers/transaction_provider.dart';
+import '../../../data/models/transaction_model.dart';
 
 class FlexibleExpensesScreen extends StatefulWidget {
   const FlexibleExpensesScreen({super.key});
@@ -17,7 +17,7 @@ class _FlexibleExpensesScreenState extends State<FlexibleExpensesScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
 
-  // Función para guardar el gasto usando el nuevo Provider
+  // Función para guardar el gasto usando el NUEVO TransactionProvider
   Future<void> _saveFlexibleExpense(String uid) async {
     final title = _titleController.text.trim();
     final amountText = _amountController.text.trim();
@@ -28,13 +28,18 @@ class _FlexibleExpensesScreenState extends State<FlexibleExpensesScreen> {
     if (amount <= 0) return;
 
     try {
-      // Llamamos al ExpenseProvider para agregar el gasto flexible
-      await Provider.of<ExpenseProvider>(context, listen: false).addExpense(
+      // 1. Creamos el registro en el formato maestro
+      final newTransaction = TransactionModel(
+        id: '', // Firebase genera el ID automáticamente
         name: title,
         amount: amount,
-        isFixed: false, // Es un gasto flexible (Ocio/Deseo)
-        category: 'Ocio/Flexible',
+        date: DateTime.now(),
+        type: 'expense', // Es un gasto
+        category: 'Ocio/Flexible', // Etiqueta para saber que es flexible
       );
+
+      // 2. Llamamos al TransactionProvider para agregarlo
+      await Provider.of<TransactionProvider>(context, listen: false).addTransaction(newTransaction);
 
       if (mounted) {
         _titleController.clear();
@@ -65,10 +70,13 @@ class _FlexibleExpensesScreenState extends State<FlexibleExpensesScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Consumer<ExpenseProvider>(
-        builder: (context, expenseProvider, child) {
-          // Obtenemos solo los gastos flexibles del Provider
-          final expenses = expenseProvider.flexibleExpenses;
+      // Cambiamos el Consumer al TransactionProvider
+      body: Consumer<TransactionProvider>(
+        builder: (context, transactionProvider, child) {
+          // Filtramos la lista principal para mostrar SOLO los gastos flexibles
+          final expenses = transactionProvider.transactions
+              .where((t) => t.type == 'expense' && t.category == 'Ocio/Flexible')
+              .toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -109,7 +117,7 @@ class _FlexibleExpensesScreenState extends State<FlexibleExpensesScreen> {
                               child: const Icon(Icons.local_cafe, color: Colors.orange)
                           ),
                           title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text("Gasto Flexible"),
+                          subtitle: const Text("Gasto Flexible"),
                           trailing: Text(
                               'Q${item.amount.toStringAsFixed(2)}',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)

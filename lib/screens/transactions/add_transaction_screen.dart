@@ -3,10 +3,9 @@ import 'package:currency_text_input_formatter/currency_text_input_formatter.dart
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-// Importamos los nuevos "motores" y modelos
-import '../../providers/expenseProvider.dart';
-import '../../providers/budget_provider.dart';
-import '../../data/models/expense_model.dart';
+// NUEVOS MOTORES: Usamos el cerebro unificado
+import '../../providers/transaction_provider.dart';
+import '../../data/models/transaction_model.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String? editDocId;
@@ -38,7 +37,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  // --- EL NUEVO MÉTODO DE GUARDADO ---
+  // --- EL NUEVO MÉTODO DE GUARDADO (Directo a la tubería nueva) ---
   Future<void> _saveTransaction() async {
     final String amountText = _amountController.text.replaceAll(',', '');
     final double amount = double.tryParse(amountText) ?? 0;
@@ -53,22 +52,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      if (_isExpense) {
-        // 1. Guardar como GASTO en el ExpenseProvider
-        // Determinamos si es fijo o flexible (Ocio es flexible)
-        bool isFixed = _selectedCategory != 'Ocio/Flexible';
+      // Determinamos si es 'expense' (gasto) o 'income' (ingreso)
+      final type = _isExpense ? 'expense' : 'income';
 
-        await Provider.of<ExpenseProvider>(context, listen: false).addExpense(
-          name: _noteController.text.isEmpty ? "Gasto sin nombre" : _noteController.text,
-          amount: amount,
-          isFixed: isFixed,
-          category: _selectedCategory!,
-        );
-      } else {
-        // 2. Guardar como INGRESO en el BudgetProvider
-        // Nota: Actualmente tu BudgetProvider sobreescribe el total.
-        await Provider.of<BudgetProvider>(context, listen: false).updateIncomeAndLimits(amount);
-      }
+      // Creamos el registro en el nuevo formato maestro
+      final newTransaction = TransactionModel(
+        id: '', // Firebase genera el ID automáticamente
+        name: _noteController.text.isEmpty
+            ? (_isExpense ? "Gasto sin nombre" : "Ingreso sin nombre")
+            : _noteController.text,
+        amount: amount,
+        date: _selectedDate,
+        type: type,
+        category: _selectedCategory!,
+      );
+
+      // Enviamos el registro al TransactionProvider (El nuevo cerebro)
+      await Provider.of<TransactionProvider>(context, listen: false).addTransaction(newTransaction);
 
       if (mounted) Navigator.pop(context);
     } catch (e) {

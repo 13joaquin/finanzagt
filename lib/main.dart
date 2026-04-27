@@ -11,9 +11,7 @@ import 'providers/user_provider.dart';
 import 'providers/sanctuary_provider.dart';
 import 'providers/debt_provider.dart';
 import 'providers/GoalProvider.dart';
-import 'providers/expenseProvider.dart';
-import 'providers/budget_provider.dart';
-import 'providers/transaction_provider.dart'; // <-- Agrega esta línea
+import 'providers/transaction_provider.dart';
 
 // Importamos pantallas
 import 'package:finanzagt/screens/auth/auth_gate.dart';
@@ -34,7 +32,7 @@ void main() async {
         // El Santuario (El Árbol)
         ChangeNotifierProvider(create: (_) => SanctuaryProvider()),
 
-        // NUEVOS PROVEEDORES ESPECIALIZADOS (Sustituyen a TransactionProvider)
+        // NUEVOS PROVEEDORES ESPECIALIZADOS
         ChangeNotifierProvider(create: (_) => GoalProvider()),
         ChangeNotifierProvider(create: (_) => DebtProvider()),
 
@@ -48,23 +46,6 @@ void main() async {
               transactionProvider!..listenToTransactions(uid);
             }
             return transactionProvider!;
-          },
-        ),
-        // Tienda 5: Maneja los Gastos (¡Ahora enciende automáticamente!)
-        ChangeNotifierProxyProvider<UserProvider, ExpenseProvider>(
-          create: (_) => ExpenseProvider(),
-          update: (_, userProvider, expenseProvider) {
-            return expenseProvider!..updateUser(userProvider.currentUser?.uid);
-          },
-        ),
-
-        // Tienda 6: Maneja el Presupuesto General y Límites
-        ChangeNotifierProxyProvider<UserProvider, BudgetProvider>(
-          create: (_) => BudgetProvider(),
-          update: (_, userProvider, budgetProvider) {
-            // Asumo que tu BudgetProvider también tendrá un updateUser.
-            // Si te da error, coméntame cómo se llama la función allí.
-            return budgetProvider!..updateUser(userProvider.currentUser?.uid);
           },
         ),
       ],
