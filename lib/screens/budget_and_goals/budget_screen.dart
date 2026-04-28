@@ -8,8 +8,7 @@ import 'package:intl/intl.dart';
 
 // Providers
 import '../../providers/user_provider.dart';
-import '../../providers/budget_provider.dart';
-import '../../providers/expenseProvider.dart';
+import '../../providers/transaction_provider.dart'; // <-- EL NUEVO JEFE ÚNICO
 import '../../providers/GoalProvider.dart';
 import '../../providers/debt_provider.dart';
 
@@ -25,8 +24,7 @@ class BudgetScreen extends StatelessWidget {
 
     // 1. ESCUCHA DE PROVIDERS
     final userProvider = Provider.of<UserProvider>(context);
-    final budgetProvider = Provider.of<BudgetProvider>(context);
-    final expenseProvider = Provider.of<ExpenseProvider>(context);
+    final transactionProvider = Provider.of<TransactionProvider>(context); // Llamamos al jefe
     final goalProvider = Provider.of<GoalProvider>(context);
     final debtProvider = Provider.of<DebtProvider>(context);
 
@@ -34,16 +32,31 @@ class BudgetScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // 2. CÁLCULOS DE LÓGICA (Las piezas faltantes)
-    final double income = budgetProvider.monthlyIncome;
-    final double fixed = expenseProvider.totalFixedExpenses;
-    final double flexible = expenseProvider.totalFlexibleExpenses;
+    // 2. CÁLCULOS DE LÓGICA (Basados en la realidad)
+    final double income = transactionProvider.totalIncomes;
+
+    // Filtramos los gastos fijos (Todo lo que NO sea Ocio/Flexible)
+    final double fixed = transactionProvider.transactions
+        .where((t) => t.type == 'expense' && t.category != 'Ocio/Flexible')
+        .fold(0.0, (sum, item) => sum + item.amount);
+
+    // Filtramos los gastos flexibles (Solo Ocio/Flexible)
+    final double flexible = transactionProvider.transactions
+        .where((t) => t.type == 'expense' && t.category == 'Ocio/Flexible')
+        .fold(0.0, (sum, item) => sum + item.amount);
+
     final double savings = goalProvider.totalSaved;
 
-    // Deudas (Asegúrate de que estos getters existan en tu DebtProvider)
+    // Deudas
     final double paidDebts = debtProvider.totalPaidAmount;
     final double totalDebts = debtProvider.totalDebtAmount;
 
+    // 3. LÍMITES AUTOMÁTICOS (Regla 50/30/20)
+    final double limitNeeds = income * 0.50;
+    final double limitWants = income * 0.30;
+    final double limitSavings = income * 0.20;
+
+    // 4. TOTALES Y PROGRESO
     final double totalSpent = fixed + flexible + savings + paidDebts;
     final double remaining = income - totalSpent;
     final double progressFactor = income > 0 ? (totalSpent / income).clamp(0.0, 1.0) : 0.0;
@@ -59,7 +72,7 @@ class BudgetScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // --- NUEVO HEADER PROFESIONAL ---
+          // --- HEADER PROFESIONAL ---
           _buildHeader(context, income, remaining, progressFactor, currencyFormat),
 
           const SizedBox(height: 30),
@@ -72,7 +85,7 @@ class BudgetScreen extends StatelessWidget {
             title: 'Gastos Fijos',
             subtitle: 'Necesidades (50%)',
             spent: fixed,
-            total: budgetProvider.limitNeeds,
+            total: limitNeeds, // Límite automático
             icon: Icons.home_work_outlined,
             color: const Color(0xFF4A47F6),
             actionLabel: 'Ver detalles',
@@ -87,7 +100,7 @@ class BudgetScreen extends StatelessWidget {
             title: 'Gastos Flexibles',
             subtitle: 'Deseos y Ocio (30%)',
             spent: flexible,
-            total: budgetProvider.limitWants,
+            total: limitWants, // Límite automático
             icon: Icons.local_play_outlined,
             color: Colors.orange,
             actionLabel: 'Ver detalles',
@@ -102,7 +115,7 @@ class BudgetScreen extends StatelessWidget {
             title: 'Santuario',
             subtitle: 'Ahorros y Metas (20%)',
             spent: savings,
-            total: budgetProvider.limitSavings,
+            total: limitSavings, // Límite automático
             icon: Icons.savings_outlined,
             color: const Color(0xFF2E7D32),
             actionLabel: 'Mis metas',
@@ -155,7 +168,7 @@ class BudgetScreen extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.edit_note, color: Colors.white),
                 onPressed: () {
-                  // Aquí podrías abrir un diálogo para actualizar el ingreso
+                  // Futura función para ajustes
                 },
               )
             ],

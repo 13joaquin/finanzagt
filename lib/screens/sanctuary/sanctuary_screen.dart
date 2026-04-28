@@ -5,30 +5,35 @@ import 'package:lottie/lottie.dart';
 
 import '../../providers/user_provider.dart';
 import '../../providers/sanctuary_provider.dart';
-import '../../data/models/goal_model.dart'; // <--- NUEVO IMPORT
-import '../../data/models/debt_model.dart'; // <--- NUEVO IMPORT
+import '../../providers/GoalProvider.dart';      // Importamos los jefes de datos
+import '../../providers/debt_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../data/models/goal_model.dart';
+import '../../data/models/debt_model.dart';
 
 class SanctuaryScreen extends StatelessWidget {
   const SanctuaryScreen({super.key});
 
   String _getStageDescription(TreeStage stage) {
     switch (stage) {
-      case TreeStage.seed:
-        return "Una semilla esperando crecer...";
-      case TreeStage.sprout:
-        return "¡Un pequeño brote! Vas por buen camino.";
-      case TreeStage.youngTree:
-        return "Tu árbol joven se está fortaleciendo.";
-      case TreeStage.fullTree:
-        return "Un árbol fuerte y frondoso.";
-      case TreeStage.blooming:
-        return "¡Floreciendo! Has cumplido tus metas.";
+      case TreeStage.seed: return "Una semilla esperando crecer...";
+      case TreeStage.sprout: return "¡Un pequeño brote! Vas por buen camino.";
+      case TreeStage.youngTree: return "Tu árbol joven se está fortaleciendo.";
+      case TreeStage.fullTree: return "Un árbol fuerte y frondoso.";
+      case TreeStage.blooming: return "¡Floreciendo! Has cumplido tus metas.";
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+
+    // 1. ESCUCHAMOS A LOS DUEÑOS DE LA INFORMACIÓN
+    final goalProvider = Provider.of<GoalProvider>(context);
+    final debtProvider = Provider.of<DebtProvider>(context);
+    final transactionProvider = Provider.of<TransactionProvider>(context);
+    final sanctuaryProvider = Provider.of<SanctuaryProvider>(context, listen: false);
+
     final currentUser = userProvider.currentUser;
 
     if (currentUser == null) {
@@ -38,108 +43,136 @@ class SanctuaryScreen extends StatelessWidget {
       );
     }
 
+    // 2. EL CABLEADO AUTOMÁTICO
+    // Usamos addPostFrameCallback para actualizar el Santuario después de que se dibuje la pantalla
+    // Así el clima y el árbol reaccionan a los datos reales de los otros Providers.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      sanctuaryProvider.updateFromProviders(
+        goals: goalProvider.goals,
+        debts: debtProvider.debts,
+        totalIncomes: transactionProvider.totalIncomes,
+        totalExpenses: transactionProvider.totalExpenses,
+      );
+    });
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Mi Santuario", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
+      backgroundColor: const Color(0xFFE8F5E9),
       body: Consumer<SanctuaryProvider>(
         builder: (context, sanctuary, child) {
           return Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFE8F5E9), Colors.white],
+                colors: sanctuary.weatherState == WeatherState.rainy
+                    ? [Colors.blueGrey.shade800, Colors.blueGrey.shade400]
+                    : [const Color(0xFFE8F5E9), Colors.white],
               ),
             ),
-            child: SingleChildScrollView(
+            child: SafeArea(
               child: Column(
                 children: [
                   const SizedBox(height: 20),
                   Text(
-                    _getStageDescription(sanctuary.treeStage),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.green[800]),
+                    "Tu Santuario Financiero",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: sanctuary.weatherState == WeatherState.rainy ? Colors.white : Colors.green.shade900,
+                    ),
                   ),
-
-                  // Visualización del Árbol (Simulada por ahora con Icono o Lottie)
-                  SizedBox(
-                    height: 300,
-                    child: Center(
-                      child: Icon(
-                        Icons.eco,
-                        size: 150,
-                        color: sanctuary.treeStage == TreeStage.blooming ? Colors.pink : Colors.green,
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Text(
+                      sanctuary.weatherDescription,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: sanctuary.weatherState == WeatherState.rainy ? Colors.white70 : Colors.green.shade700,
                       ),
                     ),
                   ),
 
-                  // ESTADO DEL CLIMA
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  const Spacer(),
+
+                  // ÁREA DEL ÁRBOL (DISEÑO UI PRESERVADO)
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
+                        if (sanctuary.weatherState == WeatherState.sunny)
+                          const Icon(Icons.wb_sunny, size: 100, color: Colors.orangeAccent),
                         Icon(
-                          sanctuary.weatherState == WeatherState.sunny
-                              ? Icons.wb_sunny : sanctuary.weatherState == WeatherState.cloudy
-                              ? Icons.cloud : Icons.umbrella,
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          "Clima: ${sanctuary.weatherState.name.toUpperCase()}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          Icons.eco,
+                          size: 200,
+                          color: sanctuary.weatherState == WeatherState.rainy ? Colors.green.shade200 : Colors.green.shade600,
                         ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 40),
+                  const Spacer(),
 
-                  // BOTONES DE SIMULACIÓN (CORREGIDOS)
-                  const Text("Panel de Pruebas (Debug):", style: TextStyle(color: Colors.grey)),
-                  Wrap(
-                    spacing: 10,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          _getStageDescription(sanctuary.treeStage),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // BOTONES DE PRUEBA (CORREGIDOS CON totalIncomes)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          // Simulación: Sin metas = Semilla
                           sanctuary.updateFromProviders(
                               goals: [],
                               debts: [],
-                              totalExpenses: 0
+                              totalIncomes: 1000, // Arreglado
+                              totalExpenses: 2000
                           );
                         },
-                        child: const Text("Semilla"),
+                        child: const Text("Lluvia"),
                       ),
+                      const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: () {
-                          // Simulación: Una meta al 50%
                           sanctuary.updateFromProviders(
                               goals: [
                                 GoalModel(id: '1', name: 'Prueba', targetAmount: 1000, currentAmount: 500, colorHex: '#4A47F6')
                               ],
                               debts: [],
+                              totalIncomes: 5000, // Arreglado
                               totalExpenses: 500
                           );
                         },
                         child: const Text("Mitad"),
                       ),
+                      const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: () {
-                          // Simulación: Meta cumplida al 100%
                           sanctuary.updateFromProviders(
                               goals: [
                                 GoalModel(id: '1', name: 'Éxito', targetAmount: 1000, currentAmount: 1000, colorHex: '#4A47F6')
                               ],
                               debts: [],
+                              totalIncomes: 5000, // Arreglado
                               totalExpenses: 500
                           );
                         },
-                        child: const Text("Meta Cumplida"),
+                        child: const Text("Meta"),
                       ),
                     ],
                   ),

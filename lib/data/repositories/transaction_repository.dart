@@ -1,85 +1,49 @@
+// Archivo: lib/data/models/transaction_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/transaction_model.dart';
 
-class TransactionRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class TransactionModel {
+  final String id;
+  final String name;
+  final double amount;
+  final DateTime date;
+  final String type;     // 'income', 'expense' o 'saving'
+  final String category;
 
-  // 1. AGREGAR TRANSACCIÓN (Y actualizar saldos al mismo tiempo)
-  Future<void> addTransaction(String userId, TransactionModel transaction) async {
-    final userRef = _firestore.collection('users').doc(userId);
-    final newTransactionRef = userRef.collection('transactions').doc();
+  TransactionModel({
+    required this.id,
+    required this.name,
+    required this.amount,
+    required this.date,
+    required this.type,
+    required this.category,
+  });
 
-    await _firestore.runTransaction((tx) async {
-      DocumentSnapshot userDoc = await tx.get(userRef);
-      double currentSafeToSpend = (userDoc.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
-      double currentNetWorth = (userDoc.data() as Map<String, dynamic>?)?['net_worth']?.toDouble() ?? 0.0;
-
-      double newSafeToSpend = currentSafeToSpend;
-      double newNetWorth = currentNetWorth;
-
-      if (transaction.type == 'expense') {
-        newSafeToSpend -= transaction.amount;
-        newNetWorth -= transaction.amount;
-      } else {
-        newSafeToSpend += transaction.amount;
-        newNetWorth += transaction.amount;
-      }
-
-      // Guardamos usamos "toFirestore" del modelo
-      tx.set(newTransactionRef, transaction.toFirestore());
-
-      tx.update(userRef, {
-        'safe_balance': newSafeToSpend,
-        'net_worth': newNetWorth,
-      });
-    });
+  // EL TRADUCTOR (toFirestore):
+  // Este es el método que soluciona los errores en tu TransactionRepository.
+  // Convierte el objeto de Dart a un mapa que Firebase puede entender.
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'amount': amount,
+      'date': Timestamp.fromDate(date), // Firebase usa Timestamps para fechas
+      'type': type,
+      'category': category,
+      // Nota: El 'id' no se envía en el cuerpo porque es el nombre del documento en Firebase
+    };
   }
 
-  // 2. ELIMINAR TRANSACCIÓN (Y devolver el dinero al saldo)
-  Future<void> deleteTransaction({
-    required String userId,
-    required String docId,
-    required double amount,
-    required bool isExpense,
-  }) async {
-    final userRef = _firestore.collection('users').doc(userId);
-    final transactionRef = userRef.collection('transactions').doc(docId);
-
-    await _firestore.runTransaction((tx) async {
-      DocumentSnapshot userDoc = await tx.get(userRef);
-      if (!userDoc.exists) return;
-
-      double currentSafe = (userDoc.data() as Map<String, dynamic>?)?['safe_balance']?.toDouble() ?? 0.0;
-      double currentNet = (userDoc.data() as Map<String, dynamic>?)?['net_worth']?.toDouble() ?? 0.0;
-
-      double newSafe = isExpense ? (currentSafe + amount) : (currentSafe - amount);
-      double newNet = isExpense ? (currentNet + amount) : (currentNet - amount);
-
-      tx.delete(transactionRef);
-      tx.update(userRef, {
-        'safe_balance': newSafe,
-        'net_worth': newNet,
-      });
-    });
-  }
-
-  // 3. OBTENER CATEGORÍAS DEL USUARIO (Nuevo)
-  Future<List<String>> getUserCategories(String userId) async {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-
-    // Si el usuario tiene categorías guardadas, las usamos. Si no, damos las por defecto.
-    if (userDoc.exists) {
-      var data = userDoc.data() as Map<String, dynamic>?;
-      if (data != null && data.containsKey('categories')) {
-        return List<String>.from(data['categories']);
-      }
-    }
-    return ['Comida', 'Transporte', 'Vivienda', 'Ocio/Flexible', 'Salario', 'Ventas', 'Otros'];
-  }
-
-  // 4. ACTUALIZAR TRANSACCIÓN (Nuevo)
-  Future<void> updateTransaction(String userId, String docId, TransactionModel transaction) async {
-    // Para no complicar la matemática de edición, actualizamos solo el texto de la transacción en esta fase.
-    await _firestore.collection('users').doc(userId).collection('transactions').doc(docId).update(transaction.toFirestore());
+  // FACTORY (fromFirestore):
+  // Esto te servirá para el futuro cuando quieras LEER los datos de la nube
+  // y convertirlos de nuevo en objetos de tu app.
+  factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return TransactionModel(
+      id: doc.id,
+      name: data['name'] ?? '',
+      amount: (data['amount'] ?? 0.0).toDouble(),
+      date: (data['date'] as Timestamp).toDate(),
+      type: data['type'] ?? '',
+      category: data['category'] ?? '',
+    );
   }
 }
