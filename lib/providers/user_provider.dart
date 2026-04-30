@@ -22,22 +22,16 @@ class UserProvider extends ChangeNotifier {
   void _listenToAuthChanges() {
     _authSubscription = _authRepo.authStateChanges.listen((User? firebaseUser) async {
       if (firebaseUser == null) {
-        // --- INICIO SILENCIOSO ---
-        // Si no hay nadie conectado (al abrir la app o al cerrar sesión),
-        // creamos una cuenta anónima automáticamente.
         _currentUser = null;
         notifyListeners();
 
         try {
           debugPrint("Iniciando sesión anónima automáticamente...");
           await _authRepo.signInAnonymously();
-          // Al hacer esto, Firebase volverá a disparar este listener,
-          // pero ahora firebaseUser YA NO será nulo, y pasará al 'else' de abajo.
         } catch (e) {
           debugPrint("Error en inicio silencioso: $e");
         }
       } else {
-        // Si hay un usuario (Anónimo o con Correo), cargamos su perfil
         await _loadOrCreateUserProfile(firebaseUser);
       }
     });
@@ -50,7 +44,6 @@ class UserProvider extends ChangeNotifier {
       if (userDoc.exists) {
         _currentUser = UserModel.fromFirestore(userDoc);
       } else {
-        // Solo se crea el documento la primera vez que Firebase genera el ID
         _currentUser = UserModel(
           uid: firebaseUser.uid,
           isAnonymous: firebaseUser.isAnonymous,
@@ -67,6 +60,39 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("Error al cargar perfil de usuario: $e");
+    }
+  }
+
+  // --- NUEVO: GESTIÓN DE SALDO SEGURO (SAFE TO SPEND) ---
+
+  /// Este método actualiza el saldo disponible restando gastos y ahorros.
+  /// Se llama automáticamente desde la lógica de transacciones.
+  Future<void> updateFinancialHealth({
+    required double totalIncomes,
+    required double totalExpenses,
+    required double totalSavings,
+  }) async {
+    if (_currentUser == null) return;
+
+    // Cálculo: Lo que entra menos lo que sale y lo que se guarda en "cubetas"
+    double newSafeBalance = totalIncomes - totalExpenses - totalSavings;
+
+    try {
+      await _firestore.collection('users').doc(_currentUser!.uid).update({
+        'safe_to_spend': newSafeBalance,
+        // El Net Worth (Patrimonio) es diferente: es lo que tienes ahorrado
+        'net_worth': totalSavings,
+      });
+
+      // Actualizamos localmente para que la UI reaccione de inmediato
+      _currentUser = _currentUser!.copyWith(
+        safeToSpend: newSafeBalance,
+        netWorth: totalSavings,
+      );
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error al actualizar salud financiera: $e");
     }
   }
 
@@ -111,12 +137,8 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- MÉTODOS DE AUTENTICACIÓN ---
-
   Future<void> signOut() async {
     await _authRepo.signOut();
-    // Nota: Al hacer signOut, firebaseUser será nulo, el listener lo detectará
-    // y creará un invitado nuevo automáticamente. ¡Fricción Cero!
   }
 
   @override

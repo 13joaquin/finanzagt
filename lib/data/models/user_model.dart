@@ -9,7 +9,6 @@ class UserModel {
   final double safeToSpend;
   final double netWorth;
   final Map<String, dynamic> preferences;
-  // AGREGAR ESTA LÍNEA:
   final bool profileCompleted;
 
   UserModel({
@@ -48,5 +47,29 @@ class UserModel {
       'preferences': preferences,
       'profile_completed': profileCompleted, // GUARDAR EN FIRESTORE
     };
+  }
+
+  // --- NUEVO: MÉTODO COPYWITH ---
+  // Permite clonar el usuario cambiando solo los valores que necesitemos
+  UserModel copyWith({
+    String? uid,
+    bool? isAnonymous,
+    String? email,
+    String? displayName,
+    double? safeToSpend,
+    double? netWorth,
+    Map<String, dynamic>? preferences,
+    bool? profileCompleted,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      isAnonymous: isAnonymous ?? this.isAnonymous,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      safeToSpend: safeToSpend ?? this.safeToSpend,
+      netWorth: netWorth ?? this.netWorth,
+      preferences: preferences ?? this.preferences,
+      profileCompleted: profileCompleted ?? this.profileCompleted,
+    );
   }
 }

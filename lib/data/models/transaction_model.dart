@@ -1,3 +1,4 @@
+// Archivo: lib/data/models/transaction_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TransactionModel {
@@ -5,15 +6,8 @@ class TransactionModel {
   final String name;
   final double amount;
   final DateTime date;
-
-  // 'income' (Ingreso), 'expense' (Gasto), 'saving' (Ahorro/Santuario)
-  final String type;
-
+  final String type;     // 'income', 'expense' o 'saving'
   final String category;
-
-  // Campos opcionales para vincular con otros hijos
-  final String? goalId; // Si es un ahorro para el Santuario
-  final String? debtId; // Si es un pago a una deuda
 
   TransactionModel({
     required this.id,
@@ -22,34 +16,61 @@ class TransactionModel {
     required this.date,
     required this.type,
     required this.category,
-    this.goalId,
-    this.debtId,
   });
 
-  // Convertir de Map (Firebase) a Objeto (Dart)
-  factory TransactionModel.fromMap(Map<String, dynamic> map, String documentId) {
-    return TransactionModel(
-      id: documentId,
-      name: map['name'] ?? '',
-      amount: (map['amount'] ?? 0.0).toDouble(),
-      date: (map['date'] as Timestamp).toDate(),
-      type: map['type'] ?? 'expense',
-      category: map['category'] ?? 'General',
-      goalId: map['goalId'],
-      debtId: map['debtId'],
-    );
-  }
-
-  // Convertir de Objeto (Dart) a Map (Firebase)
-  Map<String, dynamic> toMap() {
+// --- 1. PARA FIREBASE (Firestore) ---
+  // Convierte el objeto de Dart a un formato que Firebase entiende.
+  Map<String, dynamic> toFirestore() {
     return {
       'name': name,
       'amount': amount,
-      'date': Timestamp.fromDate(date),
+      'date': Timestamp.fromDate(date), // Convertimos DateTime a Timestamp de Firebase
       'type': type,
       'category': category,
-      'goalId': goalId,
-      'debtId': debtId,
+      // El 'id' no se pone aquí porque es el nombre del documento.
     };
+  }
+
+  // 2. LA FÁBRICA DE ENTRADA (fromFirestore):
+  // Toma los datos crudos de Firebase y crea un objeto TransactionModel.
+  factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
+    // Verificamos que existan datos en el documento
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+    return TransactionModel(
+      id: doc.id, // El ID se saca del nombre del documento
+      name: data['name'] ?? '',
+      amount: (data['amount'] ?? 0.0).toDouble(),
+      // Convertimos el Timestamp de Firebase de vuelta a DateTime de Dart
+      date: (data['date'] as Timestamp).toDate(),
+      type: data['type'] ?? 'expense',
+      category: data['category'] ?? 'General',
+    );
+  }
+  // --- 2. PARA EL PROVIDER (Mapas estándar) ---
+  // Estos son los que el Provider está pidiendo ahora mismo
+
+  // Dart -> Mapa (Incluye el ID y convierte fecha a String)
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'amount': amount,
+      'date': date.toIso8601String(), // Convertimos a texto para mapas simples
+      'type': type,
+      'category': category,
+    };
+  }
+
+  // Mapa -> Dart
+  factory TransactionModel.fromMap(Map<String, dynamic> map, String id) {
+    return TransactionModel(
+      id: id,
+      name: map['name'] ?? '',
+      amount: (map['amount'] ?? 0.0).toDouble(),
+      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      type: map['type'] ?? 'expense',
+      category: map['category'] ?? 'General',
+    );
   }
 }

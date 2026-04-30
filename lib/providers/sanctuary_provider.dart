@@ -40,11 +40,12 @@ class SanctuaryProvider extends ChangeNotifier {
     }
 
     double totalProgress = 0;
+
     for (var goal in goals) {
       totalProgress += (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
     }
     for (var debt in debts) {
-      totalProgress += (debt.paymentProgress / debt.totalAmount).clamp(0.0, 1.0);
+      totalProgress += debt.paymentProgress;
     }
 
     double averageProgress = totalProgress / totalItems;

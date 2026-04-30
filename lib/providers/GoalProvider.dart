@@ -40,8 +40,8 @@ class GoalProvider extends ChangeNotifier {
         .collection('goals')
         .add({
       'title': name,
-      'target_amount': targetAmount,
-      'saved_amount': 0.0, // Empieza en cero
+      'targetAmount': targetAmount, // Estandarizado
+      'currentAmount': 0.0,         // <-- CAMBIO IMPORTANTE: Estandarizado para coincidir con el Repositorio
       'colorHex': colorHex,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -51,19 +51,15 @@ class GoalProvider extends ChangeNotifier {
   Future<void> addSavings(String goalId, double amount) async {
     if (_userId == null) return;
 
-    // Buscamos la meta localmente para obtener el saldo actual
-    final goalIndex = _goals.indexWhere((g) => g.id == goalId);
-    if (goalIndex == -1) return;
-
-    final currentAmount = _goals[goalIndex].currentAmount;
-
+    // CAMBIO CLAVE: Usamos FieldValue.increment al igual que en el TransactionRepository.
+    // Esto es 100% seguro contra fallos de sincronización.
     await FirebaseFirestore.instance
         .collection('users')
         .doc(_userId)
         .collection('goals')
         .doc(goalId)
         .update({
-      'saved_amount': currentAmount + amount,
+      'currentAmount': FieldValue.increment(amount), // Actualización directa en la nube
     });
   }
 

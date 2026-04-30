@@ -5,14 +5,45 @@ import 'package:lottie/lottie.dart';
 
 import '../../providers/user_provider.dart';
 import '../../providers/sanctuary_provider.dart';
-import '../../providers/GoalProvider.dart';      // Importamos los jefes de datos
+import '../../providers/GoalProvider.dart';
 import '../../providers/debt_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../data/models/goal_model.dart';
-import '../../data/models/debt_model.dart';
 
-class SanctuaryScreen extends StatelessWidget {
+class SanctuaryScreen extends StatefulWidget {
   const SanctuaryScreen({super.key});
+
+  @override
+  State<SanctuaryScreen> createState() => _SanctuaryScreenState();
+}
+
+class _SanctuaryScreenState extends State<SanctuaryScreen> with TickerProviderStateMixin {
+  late AnimationController _treeController;
+  double _lastProgress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _treeController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _treeController.dispose();
+    super.dispose();
+  }
+
+  double _getTreeProgress(TreeStage stage) {
+    switch (stage) {
+      case TreeStage.seed: return 0.05;
+      case TreeStage.sprout: return 0.25;
+      case TreeStage.youngTree: return 0.50;
+      case TreeStage.fullTree: return 0.80;
+      case TreeStage.blooming: return 1.0;
+    }
+  }
 
   String _getStageDescription(TreeStage stage) {
     switch (stage) {
@@ -27,156 +58,143 @@ class SanctuaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
-
-    // 1. ESCUCHAMOS A LOS DUEÑOS DE LA INFORMACIÓN
     final goalProvider = Provider.of<GoalProvider>(context);
     final debtProvider = Provider.of<DebtProvider>(context);
     final transactionProvider = Provider.of<TransactionProvider>(context);
     final sanctuaryProvider = Provider.of<SanctuaryProvider>(context, listen: false);
 
-    final currentUser = userProvider.currentUser;
-
-    if (currentUser == null) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFE8F5E9),
-        body: Center(child: CircularProgressIndicator()),
-      );
+    if (userProvider.currentUser == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // 2. EL CABLEADO AUTOMÁTICO
-    // Usamos addPostFrameCallback para actualizar el Santuario después de que se dibuje la pantalla
-    // Así el clima y el árbol reaccionan a los datos reales de los otros Providers.
+    // Sincronización con los datos reales del Jefe
     WidgetsBinding.instance.addPostFrameCallback((_) {
       sanctuaryProvider.updateFromProviders(
         goals: goalProvider.goals,
         debts: debtProvider.debts,
-        totalIncomes: transactionProvider.totalIncomes,
+        // En tu sanctuary_provider actual, el método _calculateWeather solo pide expenses y debts,
+        // pero lo dejamos preparado según la estructura que tengas.
         totalExpenses: transactionProvider.totalExpenses,
+        totalIncomes: transactionProvider.totalIncomes,
       );
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F5E9),
       body: Consumer<SanctuaryProvider>(
         builder: (context, sanctuary, child) {
+
+          final targetProgress = _getTreeProgress(sanctuary.treeStage);
+          if (_lastProgress != targetProgress) {
+            _lastProgress = targetProgress;
+            _treeController.animateTo(targetProgress, curve: Curves.easeInOut);
+          }
+
           return Container(
+            width: double.infinity,
+            height: double.infinity,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: sanctuary.weatherState == WeatherState.rainy
-                    ? [Colors.blueGrey.shade800, Colors.blueGrey.shade400]
+                    ? [Colors.blueGrey.shade900, Colors.blueGrey.shade600]
+                    : sanctuary.weatherState == WeatherState.cloudy
+                    ? [Colors.blueGrey.shade300, Colors.blue.shade100]
                     : [const Color(0xFFE8F5E9), Colors.white],
               ),
             ),
             child: SafeArea(
-              child: Column(
+              child: Stack(
                 children: [
-                  const SizedBox(height: 20),
-                  Text(
-                    "Tu Santuario Financiero",
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: sanctuary.weatherState == WeatherState.rainy ? Colors.white : Colors.green.shade900,
+                  // --- CAPA 1: CLIMA (Fondo fijo) ---
+                  if (sanctuary.weatherState == WeatherState.rainy)
+                    Positioned.fill(
+                      child: Lottie.asset('assets/animations/rain.json', fit: BoxFit.cover),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Text(
-                      sanctuary.weatherDescription,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: sanctuary.weatherState == WeatherState.rainy ? Colors.white70 : Colors.green.shade700,
-                      ),
+
+                  if (sanctuary.weatherState == WeatherState.sunny)
+                    Positioned(
+                      top: 20,
+                      right: 20,
+                      child: Lottie.asset('assets/animations/little_sun.json', height: 180),
                     ),
-                  ),
 
-                  const Spacer(),
-
-                  // ÁREA DEL ÁRBOL (DISEÑO UI PRESERVADO)
-                  Center(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        if (sanctuary.weatherState == WeatherState.sunny)
-                          const Icon(Icons.wb_sunny, size: 100, color: Colors.orangeAccent),
-                        Icon(
-                          Icons.eco,
-                          size: 200,
-                          color: sanctuary.weatherState == WeatherState.rainy ? Colors.green.shade200 : Colors.green.shade600,
-                        ),
-                      ],
+                  if (sanctuary.weatherState == WeatherState.cloudy)
+                    Positioned(
+                      top: 40,
+                      left: 0,
+                      right: 0,
+                      child: Lottie.asset('assets/animations/weather.json', height: 150),
                     ),
-                  ),
 
-                  const Spacer(),
-
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    margin: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                  // --- CAPA 2: CONTENIDO SCROLLABLE (Adiós Overflow) ---
+                  // Aquí aplicamos el SingleChildScrollView
+                  SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(), // Efecto de rebote suave
                     child: Column(
                       children: [
+                        const SizedBox(height: 30),
                         Text(
-                          _getStageDescription(sanctuary.treeStage),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                          "Tu Santuario Financiero",
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: sanctuary.weatherState == WeatherState.rainy ? Colors.white : Colors.green.shade900,
+                          ),
                         ),
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: Text(
+                            sanctuary.weatherDescription,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: sanctuary.weatherState == WeatherState.rainy ? Colors.white70 : Colors.green.shade700,
+                            ),
+                          ),
+                        ),
+
+                        // Reemplazamos los Spacer() por SizedBox fijos
+                        const SizedBox(height: 40),
+
+                        // EL ÁRBOL
+                        Center(
+                          child: Lottie.asset(
+                            'assets/animations/tree_growth_without_background.json',
+                            controller: _treeController,
+                            height: 450,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+
+                        const SizedBox(height: 40),
+
+                        // TARJETA DE INFORMACIÓN
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          margin: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                _getStageDescription(sanctuary.treeStage),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Este espacio extra abajo es crucial para que cuando agreguemos
+                        // las macetas y deudas, la pantalla no se sienta cortada.
+                        const SizedBox(height: 50),
                       ],
                     ),
                   ),
-
-                  // BOTONES DE PRUEBA (CORREGIDOS CON totalIncomes)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          sanctuary.updateFromProviders(
-                              goals: [],
-                              debts: [],
-                              totalIncomes: 1000, // Arreglado
-                              totalExpenses: 2000
-                          );
-                        },
-                        child: const Text("Lluvia"),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: () {
-                          sanctuary.updateFromProviders(
-                              goals: [
-                                GoalModel(id: '1', name: 'Prueba', targetAmount: 1000, currentAmount: 500, colorHex: '#4A47F6')
-                              ],
-                              debts: [],
-                              totalIncomes: 5000, // Arreglado
-                              totalExpenses: 500
-                          );
-                        },
-                        child: const Text("Mitad"),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: () {
-                          sanctuary.updateFromProviders(
-                              goals: [
-                                GoalModel(id: '1', name: 'Éxito', targetAmount: 1000, currentAmount: 1000, colorHex: '#4A47F6')
-                              ],
-                              debts: [],
-                              totalIncomes: 5000, // Arreglado
-                              totalExpenses: 500
-                          );
-                        },
-                        child: const Text("Meta"),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 50),
                 ],
               ),
             ),
