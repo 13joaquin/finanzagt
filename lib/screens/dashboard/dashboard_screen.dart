@@ -9,8 +9,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../data/models/transaction_model.dart';
-
 import '../profile/profile_screen.dart';
+
+// IMPORTACIONES NUEVAS PARA EL PUENTE DE SINCRONIZACIÓN
+import '../../providers/sanctuary_provider.dart';
+import '../../providers/GoalProvider.dart'; // Verifica que coincida con el nombre de tu archivo
+import '../../providers/debt_provider.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});
@@ -32,8 +36,21 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // 1.5 ESCUCHAMOS AL NUEVO CEREBRO (TransactionProvider)
+    // 1.5 ESCUCHAMOS A TODOS LOS MOTORES
     final transactionProvider = Provider.of<TransactionProvider>(context);
+    final goalProvider = Provider.of<GoalProvider>(context);
+    final debtProvider = Provider.of<DebtProvider>(context);
+
+    // 🌟 EL PUENTE DE SINCRONIZACIÓN: Avisamos al Santuario 🌟
+    // Usamos addPostFrameCallback para evitar errores de redibujado
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SanctuaryProvider>().updateFromProviders(
+        goals: goalProvider.goals,
+        debts: debtProvider.debts,
+        totalIncomes: transactionProvider.totalIncomes,
+        totalExpenses: transactionProvider.totalExpenses,
+      );
+    });
 
     // 2. CÁLCULOS EN TIEMPO REAL (Usando el nuevo cerebro)
     double income = transactionProvider.totalIncomes;

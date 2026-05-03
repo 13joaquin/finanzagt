@@ -1,12 +1,12 @@
-// lib/data/models/debt_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DebtModel {
   final String id;
   final String name;
-  final double totalAmount;    // El total de la deuda (ej. 5000)
-  final double remainingAmount; // Lo que falta pagar (ej. 2000)
-  final DateTime dueDate;      // Cuándo hay que pagar
-  final bool isPaidThisMonth;  // ¿Ya hizo el pago de este mes?
+  final double totalAmount;
+  final double remainingAmount;
+  final DateTime dueDate;
+  final bool isPaidThisMonth;
 
   DebtModel({
     required this.id,
@@ -17,9 +17,31 @@ class DebtModel {
     this.isPaidThisMonth = false,
   });
 
-  // Esta pequeña función ayuda al Santuario a saber el porcentaje de victoria
+  // Cálculo para el motor visual del Santuario[cite: 2, 4]
   double get paymentProgress {
     if (totalAmount <= 0) return 0.0;
     return (totalAmount - remainingAmount) / totalAmount;
+  }
+
+  // Soporte para Firestore y Provider[cite: 1, 6]
+  factory DebtModel.fromMap(String id, Map<String, dynamic> data) {
+    return DebtModel(
+      id: id,
+      name: data['name'] ?? 'Deuda sin nombre',
+      totalAmount: (data['totalAmount'] ?? 0).toDouble(),
+      remainingAmount: (data['remainingAmount'] ?? 0).toDouble(),
+      dueDate: (data['dueDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isPaidThisMonth: data['isPaidThisMonth'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'totalAmount': totalAmount,
+      'remainingAmount': remainingAmount,
+      'dueDate': Timestamp.fromDate(dueDate),
+      'isPaidThisMonth': isPaidThisMonth,
+    };
   }
 }

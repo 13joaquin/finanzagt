@@ -72,8 +72,6 @@ class _SanctuaryScreenState extends State<SanctuaryScreen> with TickerProviderSt
       sanctuaryProvider.updateFromProviders(
         goals: goalProvider.goals,
         debts: debtProvider.debts,
-        // En tu sanctuary_provider actual, el método _calculateWeather solo pide expenses y debts,
-        // pero lo dejamos preparado según la estructura que tengas.
         totalExpenses: transactionProvider.totalExpenses,
         totalIncomes: transactionProvider.totalIncomes,
       );
@@ -127,10 +125,9 @@ class _SanctuaryScreenState extends State<SanctuaryScreen> with TickerProviderSt
                       child: Lottie.asset('assets/animations/weather.json', height: 150),
                     ),
 
-                  // --- CAPA 2: CONTENIDO SCROLLABLE (Adiós Overflow) ---
-                  // Aquí aplicamos el SingleChildScrollView
+                  // --- CAPA 2: CONTENIDO SCROLLABLE ---
                   SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(), // Efecto de rebote suave
+                    physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
                         const SizedBox(height: 30),
@@ -155,7 +152,6 @@ class _SanctuaryScreenState extends State<SanctuaryScreen> with TickerProviderSt
                           ),
                         ),
 
-                        // Reemplazamos los Spacer() por SizedBox fijos
                         const SizedBox(height: 40),
 
                         // EL ÁRBOL
@@ -167,6 +163,35 @@ class _SanctuaryScreenState extends State<SanctuaryScreen> with TickerProviderSt
                             fit: BoxFit.contain,
                           ),
                         ),
+
+                        // --- NUEVA CAPA 3: LAS PIEDRAS (DEUDAS) ---
+                        // Solo se dibuja si hay piedras activas calculadas en el provider
+                        if (sanctuary.stoneCount > 0) ...[
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 20, // Espacio horizontal entre piedras
+                              runSpacing: 15, // Espacio vertical si hay muchas piedras
+                              children: sanctuary.activeStones.map((stone) {
+                                // Calculamos un tamaño base para simular el "peso" de la deuda
+                                double baseSize = stone.totalAmount > 5000 ? 70.0 : 50.0;
+                                // Mientras más se paga, más transparente se vuelve la piedra
+                                double stoneOpacity = 1.0 - (stone.paymentProgress * 0.7);
+
+                                return Tooltip(
+                                  message: '${stone.name}\nFalta: Q${stone.remainingAmount.toStringAsFixed(2)}',
+                                  child: Icon(
+                                    Icons.terrain, // Puedes cambiar esto por un Image.asset o Lottie después
+                                    size: baseSize,
+                                    color: Colors.blueGrey.shade800.withOpacity(stoneOpacity),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 40),
 
@@ -189,8 +214,6 @@ class _SanctuaryScreenState extends State<SanctuaryScreen> with TickerProviderSt
                           ),
                         ),
 
-                        // Este espacio extra abajo es crucial para que cuando agreguemos
-                        // las macetas y deudas, la pantalla no se sienta cortada.
                         const SizedBox(height: 50),
                       ],
                     ),

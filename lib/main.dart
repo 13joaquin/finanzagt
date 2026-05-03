@@ -32,9 +32,27 @@ void main() async {
         // El Santuario (El Árbol)
         ChangeNotifierProvider(create: (_) => SanctuaryProvider()),
 
-        // NUEVOS PROVEEDORES ESPECIALIZADOS
-        ChangeNotifierProvider(create: (_) => GoalProvider()),
-        ChangeNotifierProvider(create: (_) => DebtProvider()),
+        // NUEVOS PROVEEDORES ESPECIALIZADOS (¡Ahora sí están cableados!)
+        ChangeNotifierProxyProvider<UserProvider, GoalProvider>(
+          create: (_) => GoalProvider(),
+          update: (_, userProvider, goalProvider) {
+            final uid = userProvider.currentUser?.uid;
+            // Asegúrate de que el método en tu GoalProvider se llame así (o cámbialo a listenToGoals si lo llamaste distinto)
+            if(uid != null){
+              goalProvider!.listenToGoals(uid);
+            }
+            return goalProvider!;
+          },
+        ),
+        ChangeNotifierProxyProvider<UserProvider, DebtProvider>(
+          create: (_) => DebtProvider(),
+          update: (_, userProvider, debtProvider) {
+            final uid = userProvider.currentUser?.uid;
+            // Aquí usamos el método que creamos en el paso 1
+            debtProvider!..updateUser(uid);
+            return debtProvider!;
+          },
+        ),
 
         // EL NUEVO CEREBRO: TransactionProvider (Maneja ingresos, gastos y ahorros)
         ChangeNotifierProxyProvider<UserProvider, TransactionProvider>(
