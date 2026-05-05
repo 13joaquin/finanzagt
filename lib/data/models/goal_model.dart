@@ -24,23 +24,25 @@ class GoalModel {
     return (currentAmount / targetAmount).clamp(0.0, 1.0);
   }
 
+  // FÁBRICA DE ENTRADA: Mapeo sincronizado con el Repositorio
   factory GoalModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
 
     return GoalModel(
       id: doc.id,
-      name: data['title'] ?? 'Meta sin nombre',
-      targetAmount: (data['target_amount'] ?? 0).toDouble(),
-      currentAmount: (data['saved_amount'] ?? 0).toDouble(),
+      name: data['name'] ?? 'Meta sin nombre', // Corregido: 'name'
+      targetAmount: (data['targetAmount'] ?? 0).toDouble(), // Corregido: 'targetAmount'
+      currentAmount: (data['currentAmount'] ?? 0).toDouble(), // Corregido: 'currentAmount'
       colorHex: data['colorHex'] ?? '#4CAF50',
     );
   }
 
+  // FÁBRICA DE SALIDA: Mapeo sincronizado con el Repositorio
   Map<String, dynamic> toFirestore() {
     return {
-      'title': name,
-      'target_amount': targetAmount,
-      'saved_amount': currentAmount,
+      'name': name, // Corregido
+      'targetAmount': targetAmount, // Corregido
+      'currentAmount': currentAmount, // Corregido
       'colorHex': colorHex,
     };
   }

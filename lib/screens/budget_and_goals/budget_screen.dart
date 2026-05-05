@@ -14,6 +14,8 @@ import '../../providers/debt_provider.dart';
 
 // Widgets
 import '../../widgets/budget_card.dart';
+import '../../widgets/expense_pie_chart.dart';
+import '../../widgets/budget_bar_chart.dart';
 
 class BudgetScreen extends StatelessWidget {
   const BudgetScreen({super.key});
@@ -76,6 +78,25 @@ class BudgetScreen extends StatelessWidget {
           _buildHeader(context, income, remaining, progressFactor, currencyFormat),
 
           const SizedBox(height: 30),
+          const Text("Categorías de Presupuesto",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 15),
+
+          // --- GRÁFICA DE PASTEL (NUEVO COMPONENTE) ---
+          const ExpensePieChart(),
+          const SizedBox(height: 30),
+
+          // --- GRÁFICA DE BARRAS: PRESUPUESTO VS REAL ---
+          BudgetBarChart(
+            limitNeeds: limitNeeds,
+            spentNeeds: fixed,
+            limitWants: limitWants,
+            spentWants: flexible,
+            limitSavings: limitSavings,
+            spentSavings: savings,
+          ),
+          const SizedBox(height: 30),
+
           const Text("Categorías de Presupuesto",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 15),

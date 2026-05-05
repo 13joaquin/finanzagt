@@ -79,7 +79,7 @@ class DebtProvider extends ChangeNotifier {
       'amount': paymentAmount,
       'type': 'expense',
       'category': 'Deudas', // Vinculado a tu cubeta de ahorro y metas
-      'merchantName': 'Abono: $debtName',
+      'name': 'Abono: $debtName', // <-- CORREGIDO PARA QUE EL MODELO LO LEA
       'date': FieldValue.serverTimestamp(),
     });
 
