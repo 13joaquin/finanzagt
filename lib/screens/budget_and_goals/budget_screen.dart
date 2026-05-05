@@ -128,6 +128,7 @@ class BudgetScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const FlexibleExpensesScreen()));
             },
+
           ),
           const SizedBox(height: 15),
 
