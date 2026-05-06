@@ -19,20 +19,21 @@ class UserModel {
     required this.safeToSpend,
     required this.netWorth,
     required this.preferences,
-    this.profileCompleted = false, // Por defecto falso
+    this.profileCompleted = false,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
+
     return UserModel(
       uid: doc.id,
       isAnonymous: data['isAnonymous'] ?? true,
       email: data['email'],
-      displayName: data['displayName'] ?? 'Usuario',
+      // CORRECCIÓN: Busca 'displayName', si no existe busca 'name', y si tampoco, pone 'Invitado'
+      displayName: data['displayName'] ?? data['name'] ?? 'Invitado',
       safeToSpend: (data['safe_balance'] ?? 0.0).toDouble(),
       netWorth: (data['net_worth'] ?? 0.0).toDouble(),
       preferences: data['preferences'] ?? {},
-      // LEER DEL FIRESTORE:
       profileCompleted: data['profile_completed'] ?? false,
     );
   }
@@ -41,16 +42,15 @@ class UserModel {
     return {
       'isAnonymous': isAnonymous,
       'email': email,
-      'displayName': displayName,
+      'displayName': displayName, // Guardamos siempre como displayName para estandarizar
       'safe_balance': safeToSpend,
       'net_worth': netWorth,
       'preferences': preferences,
-      'profile_completed': profileCompleted, // GUARDAR EN FIRESTORE
+      'profile_completed': profileCompleted,
     };
   }
 
-  // --- NUEVO: MÉTODO COPYWITH ---
-  // Permite clonar el usuario cambiando solo los valores que necesitemos
+  // --- MÉTODO COPYWITH ---
   UserModel copyWith({
     String? uid,
     bool? isAnonymous,

@@ -25,9 +25,17 @@ class BudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Seguridad matemática para evitar división por cero
-    double safeTotal = total > 0 ? total : 1;
-    double progress = (spent / safeTotal).clamp(0.0, 1.0);
+    // --- LÓGICA MATEMÁTICA BLINDADA ---
+    double progress = 0.0;
+
+    if (total > 0) {
+      // Si hay un presupuesto válido, calculamos el porcentaje normalmente
+      progress = (spent / total).clamp(0.0, 1.0);
+    } else if (spent > 0) {
+      // Si el límite es 0 (ej. no hay ingresos registrados) pero ya gastaste dinero,
+      // la barra se llena al 100% para alertar que estás en números rojos.
+      progress = 1.0;
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
