@@ -14,6 +14,7 @@ class UserProvider extends ChangeNotifier {
 
   UserModel? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
+  bool get isAnonymous => _currentUser?.isAnonymous ?? true;
 
   UserProvider() {
     _listenToAuthChanges();
@@ -37,13 +38,12 @@ class UserProvider extends ChangeNotifier {
     });
   }
 
+  // --- LÓGICA DE SINCRONIZACIÓN REAL (La que repara el perfil) ---
   Future<void> _loadOrCreateUserProfile(User firebaseUser) async {
     try {
       final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
 
-      if (userDoc.exists) {
-        _currentUser = UserModel.fromFirestore(userDoc);
-      } else {
+      if (!userDoc.exists) {
         _currentUser = UserModel(
           uid: firebaseUser.uid,
           isAnonymous: firebaseUser.isAnonymous,
@@ -56,6 +56,20 @@ class UserProvider extends ChangeNotifier {
         );
 
         await _firestore.collection('users').doc(firebaseUser.uid).set(_currentUser!.toFirestore());
+      } else {
+        // Sincronizamos el estado isAnonymous con Firebase Auth para evitar el bug de la vista
+        _currentUser = UserModel.fromFirestore(userDoc).copyWith(
+          isAnonymous: firebaseUser.isAnonymous,
+          email: firebaseUser.email,
+        );
+
+        // Si en la DB decía que era anónimo pero Firebase Auth dice que NO, actualizamos la DB
+        if (userDoc.data()?['isAnonymous'] == true && !firebaseUser.isAnonymous) {
+          await _firestore.collection('users').doc(firebaseUser.uid).update({
+            'isAnonymous': false,
+            'email': firebaseUser.email,
+          });
+        }
       }
       notifyListeners();
     } catch (e) {
@@ -63,10 +77,8 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- NUEVO: GESTIÓN DE SALDO SEGURO (SAFE TO SPEND) ---
+  // --- TUS MÉTODOS RESTAURADOS ---
 
-  /// Este método actualiza el saldo disponible restando gastos y ahorros.
-  /// Se llama automáticamente desde la lógica de transacciones.
   Future<void> updateFinancialHealth({
     required double totalIncomes,
     required double totalExpenses,
@@ -74,17 +86,14 @@ class UserProvider extends ChangeNotifier {
   }) async {
     if (_currentUser == null) return;
 
-    // Cálculo: Lo que entra menos lo que sale y lo que se guarda en "cubetas"
     double newSafeBalance = totalIncomes - totalExpenses - totalSavings;
 
     try {
       await _firestore.collection('users').doc(_currentUser!.uid).update({
-        'safe_to_spend': newSafeBalance,
-        // El Net Worth (Patrimonio) es diferente: es lo que tienes ahorrado
+        'safe_balance': newSafeBalance,
         'net_worth': totalSavings,
       });
 
-      // Actualizamos localmente para que la UI reaccione de inmediato
       _currentUser = _currentUser!.copyWith(
         safeToSpend: newSafeBalance,
         netWorth: totalSavings,
@@ -96,17 +105,14 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- MÉTODOS PARA ACTUALIZAR EL PERFIL ---
-
   Future<void> updateDisplayName(String newName) async {
     if (_currentUser == null) return;
     try {
       await _firestore.collection('users').doc(_currentUser!.uid).update({
-        'display_name': newName,
+        'displayName': newName,
       });
 
-      final userDoc = await _firestore.collection('users').doc(_currentUser!.uid).get();
-      _currentUser = UserModel.fromFirestore(userDoc);
+      _currentUser = _currentUser!.copyWith(displayName: newName);
       notifyListeners();
     } catch (e) {
       debugPrint("Error al actualizar nombre: $e");
@@ -114,6 +120,7 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // AQUÍ ESTÁ EL MÉTODO QUE FALTABA
   Future<void> completeUserProfile({
     required String name,
     required int age,
@@ -122,14 +129,16 @@ class UserProvider extends ChangeNotifier {
     if (_currentUser == null) return;
     try {
       await _firestore.collection('users').doc(_currentUser!.uid).update({
-        'display_name': name,
+        'displayName': name,
         'age': age,
         'currency': currency,
         'profile_completed': true,
       });
 
-      final userDoc = await _firestore.collection('users').doc(_currentUser!.uid).get();
-      _currentUser = UserModel.fromFirestore(userDoc);
+      _currentUser = _currentUser!.copyWith(
+        displayName: name,
+        profileCompleted: true,
+      );
       notifyListeners();
     } catch (e) {
       debugPrint("Error al completar perfil: $e");

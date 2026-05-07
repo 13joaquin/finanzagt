@@ -28,183 +28,169 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // --- SECCIÓN DE CABECERA Y CONVERSIÓN ---
+            // --- 1. SECCIÓN DINÁMICA (ANÓNIMO VS REGISTRADO) ---
             if (isAnonymous)
-              _buildConversionSection(context) // Muestra banner de registro y botón de login
+              _buildAnonymousView(context)
             else
-              _buildRegisteredHeader(user?.displayName ?? "Usuario", user?.email ?? ""), // Cabecera normal
+              _buildRegisteredView(context, user?.displayName ?? "Usuario", user?.email ?? "", userProvider),
 
             const SizedBox(height: 30),
 
-            // --- OPCIONES DE CONFIGURACIÓN ---
-            _buildProfileOption(Icons.category_outlined, 'Gestionar Categorías', () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen()));
-            }),
-            _buildProfileOption(Icons.track_changes_rounded, 'Metas de Ahorro', () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen()));
-            }),
+            // --- 2. CONFIGURACIONES COMUNES ---
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text("Configuración", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+            ),
+            const SizedBox(height: 15),
 
-            const SizedBox(height: 20),
-
-            // --- BOTÓN DE CERRAR SESIÓN (SOLO REALES) ---
-            if (!isAnonymous) ...[
-              const Divider(),
-              const SizedBox(height: 20),
-              ListTile(
-                onTap: () => _showLogoutDialog(context, userProvider),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.logout_rounded, color: Colors.red),
-                ),
-                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.red),
-              ),
-            ]
+            _buildOptionTile(
+              icon: Icons.category_rounded,
+              title: 'Gestionar Categorías',
+              color: Colors.orange,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen())),
+            ),
+            _buildOptionTile(
+              icon: Icons.track_changes_rounded,
+              title: 'Metas de Ahorro',
+              color: Colors.green,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen())),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // --- WIDGET PARA USUARIOS ANÓNIMOS ---
-  Widget _buildConversionSection(BuildContext context) {
+  // --- VISTA PARA INVITADOS (Con Inicio de Sesión) ---
+  Widget _buildAnonymousView(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2D31FA), Color(0xFF5D58FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.account_circle_outlined, color: Colors.white, size: 60),
+          const SizedBox(height: 15),
+          const Text(
+            "Modo Invitado",
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Inicia sesión para respaldar tus finanzas y sincronizar tus datos.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 25),
+          // BOTÓN DE INICIO DE SESIÓN (SOLICITADO)
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF2D31FA),
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
+            icon: const Icon(Icons.login_rounded),
+            label: const Text("INICIAR SESIÓN", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen())),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen())),
+            child: const Text("¿No tienes cuenta? Regístrate aquí", style: TextStyle(color: Colors.white, decoration: TextDecoration.underline)),
+          )
+        ],
+      ),
+    );
+  }
+
+  // --- VISTA PARA REGISTRADOS (Con Cerrar Sesión) ---
+  Widget _buildRegisteredView(BuildContext context, String name, String email, UserProvider provider) {
     return Column(
       children: [
-        // Botón 1: Registrarse (Destacado)
         Container(
-          padding: const EdgeInsets.all(25),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF4A47F6), Color(0xFF6C63FF)]),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [BoxShadow(color: const Color(0xFF4A47F6).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
           ),
-          child: Column(
+          child: Row(
             children: [
-              const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 45),
-              const SizedBox(height: 15),
-              const Text(
-                "Guarda tu progreso",
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              CircleAvatar(
+                radius: 35,
+                backgroundColor: Colors.blue.withOpacity(0.1),
+                child: Text(name[0].toUpperCase(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                "Crea una cuenta para no perder tus gastos y sincronizarlos en la nube.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF4A47F6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  minimumSize: const Size(double.infinity, 50),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(email, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  ],
                 ),
-                onPressed: () {
-                  // Abre AuthScreen para REGISTRARSE
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen()));
-                },
-                child: const Text("Crear mi cuenta", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ],
           ),
         ),
-
         const SizedBox(height: 20),
-
-        // Botón 2: Ya tengo cuenta (Sutil)
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 50),
-            side: const BorderSide(color: Color(0xFF4A47F6)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          ),
-          onPressed: () {
-            // Abre AuthScreen para INICIAR SESIÓN
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const AuthScreen()));
-          },
-          child: const Text("Ya tengo una cuenta. Iniciar sesión", style: TextStyle(color: Color(0xFF4A47F6), fontWeight: FontWeight.bold)),
+        // BOTÓN DE CERRAR SESIÓN (SOLICITADO)
+        _buildOptionTile(
+          icon: Icons.logout_rounded,
+          title: 'Cerrar Sesión',
+          color: Colors.redAccent,
+          onTap: () => _showLogoutDialog(context, provider),
         ),
       ],
     );
   }
 
-  // --- WIDGET PARA USUARIOS REGISTRADOS ---
-  Widget _buildRegisteredHeader(String name, String email) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 35,
-            backgroundColor: const Color(0xFF4A47F6).withOpacity(0.1),
-            child: Text(
-              name[0].toUpperCase(),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF4A47F6)),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  email,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ... (El resto de tus métodos _showLogoutDialog y _buildProfileOption se quedan igual)
-  void _showLogoutDialog(BuildContext context, UserProvider provider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('¿Cerrar Sesión?'),
-        content: const Text('Tus datos se guardan de forma segura en la nube.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context); // Cerramos el diálogo primero
-              await provider.signOut(); // Al hacer signOut, el motor silencioso crea un invitado nuevo
-            },
-            child: const Text('Sí, salir', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileOption(IconData icon, String title, VoidCallback onTap) {
+  // --- WIDGET GENÉRICO PARA OPCIONES ---
+  Widget _buildOptionTile({required IconData icon, required String title, required Color color, required VoidCallback onTap}) {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.withOpacity(0.1))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.withOpacity(0.1))),
       child: ListTile(
         onTap: onTap,
         leading: Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xFF4A47F6).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, color: const Color(0xFF4A47F6)),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: color),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, UserProvider provider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('¿Cerrar Sesión?', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Saldrás de tu cuenta actual. Podrás volver a entrar cuando quieras.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () async {
+              Navigator.pop(context);
+              await provider.signOut(); // Esto limpia los datos y vuelve al modo anónimo
+            },
+            child: const Text('Cerrar Sesión', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
