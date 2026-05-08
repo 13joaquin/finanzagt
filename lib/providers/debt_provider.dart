@@ -12,8 +12,9 @@ class DebtProvider extends ChangeNotifier {
 
   // --- Getters para Dashboard y BudgetScreen[cite: 1, 4] ---
   double get totalDebtAmount => _debts.fold(0, (sum, item) => sum + item.totalAmount);
-  double get totalRemainingAmount => _debts.fold(0, (sum, item) => sum + item.remainingAmount);
+  double get totalRemainingAmount => _debts.fold(0.0, (sum, item) => sum + item.remainingAmount);
   double get totalPaidAmount => totalDebtAmount - totalRemainingAmount;
+  double get totalInitialDebt => _debts.fold(0.0, (sum, item) => sum + item.totalAmount);
 
   // --- Motor de Sincronización Blindado ---
   void updateUser(String? uid) {

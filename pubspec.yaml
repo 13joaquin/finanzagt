@@ -46,6 +46,7 @@ dependencies:
   #--- PAQUETES PARA EL SANTUATIO ----
   lottie: ^3.3.3
   rive: ^0.14.5
+  flutter_speed_dial: ^7.0.0
 
 dev_dependencies:
   flutter_test:

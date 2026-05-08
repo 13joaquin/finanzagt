@@ -1,9 +1,9 @@
+// Archivo: lib/screens/transactions/add_transaction_screen.dart
 import 'package:flutter/material.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-// NUEVOS MOTORES: Usamos el cerebro unificado
 import '../../providers/transaction_provider.dart';
 import '../../data/models/transaction_model.dart';
 
@@ -27,6 +27,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
 
+  // --- NUEVA VARIABLE ---
+  bool _isFixedExpense = false; // Controla el Switch
+
   final List<String> _expenseCategories = ['Comida', 'Transporte', 'Vivienda', 'Ocio/Flexible'];
   final List<String> _incomeCategories = ['Salario', 'Ventas', 'Otros'];
 
@@ -37,7 +40,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  // --- EL NUEVO MÉTODO DE GUARDADO (Directo a la tubería nueva) ---
   Future<void> _saveTransaction() async {
     final String amountText = _amountController.text.replaceAll(',', '');
     final double amount = double.tryParse(amountText) ?? 0;
@@ -52,12 +54,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Determinamos si es 'expense' (gasto) o 'income' (ingreso)
       final type = _isExpense ? 'expense' : 'income';
 
-      // Creamos el registro en el nuevo formato maestro
       final newTransaction = TransactionModel(
-        id: '', // Firebase genera el ID automáticamente
+        id: '',
         name: _noteController.text.isEmpty
             ? (_isExpense ? "Gasto sin nombre" : "Ingreso sin nombre")
             : _noteController.text,
@@ -65,9 +65,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         date: _selectedDate,
         type: type,
         category: _selectedCategory!,
+        isFixed: _isExpense ? _isFixedExpense : false, // Solo aplica si es gasto
       );
 
-      // Enviamos el registro al TransactionProvider (El nuevo cerebro)
       await Provider.of<TransactionProvider>(context, listen: false).addTransaction(newTransaction);
 
       if (mounted) Navigator.pop(context);
@@ -118,6 +118,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               decoration: InputDecoration(filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
             ),
             const SizedBox(height: 15),
+
+            // --- NUEVO: SELECTOR DE GASTO FIJO ---
+            if (_isExpense) // Solo se muestra si el botón de "Gasto" está activo
+              Container(
+                margin: const EdgeInsets.only(bottom: 15),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  title: const Text("¿Es un gasto fijo?"),
+                  subtitle: const Text("Ej. Alquiler, internet, luz", style: TextStyle(fontSize: 12)),
+                  value: _isFixedExpense,
+                  activeColor: Colors.redAccent,
+                  onChanged: (bool value) {
+                    setState(() {
+                      _isFixedExpense = value;
+                    });
+                  },
+                ),
+              ),
+
             TextField(
               controller: _noteController,
               decoration: InputDecoration(hintText: "Nota / Descripción", filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
@@ -152,7 +174,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget _typeButton(String label, bool isExpense, Color color) {
     bool isSelected = _isExpense == isExpense;
     return GestureDetector(
-      onTap: () => setState(() { _isExpense = isExpense; _selectedCategory = null; }),
+      onTap: () => setState(() {
+        _isExpense = isExpense;
+        _selectedCategory = null;
+        if (!isExpense) _isFixedExpense = false; // Reset al cambiar a ingreso
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(color: isSelected ? color : Colors.grey[200], borderRadius: BorderRadius.circular(12)),
