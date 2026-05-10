@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
-// Nota: Usaremos contenedores y formas para representar las gráficas
-// antes de importar librerías pesadas como fl_chart.
+import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import '../../providers/user_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../data/models/transaction_model.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final txProvider = Provider.of<TransactionProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
+    final currencyFormat = NumberFormat.simpleCurrency(decimalDigits: 2, name: 'Q');
+
+    // 1. Cálculos de datos reales
+    final double totalIncome = txProvider.totalIncomes;
+    final double totalExpense = txProvider.totalExpenses;
+
+    // Solución al error: Calculamos la salud financiera localmente (0 a 100)
+    // Si gastas menos del 70% de tus ingresos, tienes buena salud.
+    int healthScore = 0;
+    if (totalIncome > 0) {
+      double ratio = totalExpense / totalIncome;
+      healthScore = ((1 - ratio) * 100).clamp(0, 100).toInt();
+    }
+
+    final Map<String, double> categoriesData = _getCategoryData(txProvider.transactions);
+    final List<TransactionModel> topExpenses = _getTopExpenses(txProvider.transactions);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -14,207 +37,169 @@ class ReportsScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: () {}, // Selector de mes/año
-          )
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. RESUMEN DE SALUD FINANCIERA
-            _buildHealthScoreCard(),
+            // 1. Resumen de Salud (Calculado dinámicamente)
+            _buildHealthCard(healthScore),
 
             const SizedBox(height: 25),
-            const Text("Distribución de Gastos",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Distribución por Categoría", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            // 2. GRÁFICA DE PASTEL (CATEGORÍAS)
-            _buildCategoryPieChartPlaceholder(),
+            // 2. Gráfica de Pastel Real (fl_chart)
+            _buildPieChartCard(categoriesData),
 
             const SizedBox(height: 25),
-            const Text("Tendencia Mensual",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Comparativa Mensual", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            // 3. GRÁFICA DE BARRAS (INGRESOS VS GASTOS)
-            _buildMonthlyBarChartPlaceholder(),
+            // 3. Gráfica de Barras Real (fl_chart)
+            _buildBarChartCard(totalIncome, totalExpense),
 
             const SizedBox(height: 25),
-            const Text("Top Categorías",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Gastos más significativos", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            // 4. EL EXTRA: LISTA DE MAYORES GASTOS (Insights)
-            _buildTopExpensesList(),
+            // 4. Lista de Insights
+            _buildInsightsList(topExpenses, currencyFormat),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  // --- WIDGETS DE UX (VISUALES) ---
+  // --- Lógica de Datos ---
 
-  Widget _buildHealthScoreCard() {
+  Map<String, double> _getCategoryData(List<TransactionModel> txs) {
+    Map<String, double> data = {};
+    for (var tx in txs.where((t) => t.type == 'expense')) {
+      data[tx.category] = (data[tx.category] ?? 0) + tx.amount;
+    }
+    return data;
+  }
+
+  List<TransactionModel> _getTopExpenses(List<TransactionModel> txs) {
+    var expenses = txs.where((t) => t.type == 'expense').toList();
+    expenses.sort((a, b) => b.amount.compareTo(a.amount));
+    return expenses.take(3).toList();
+  }
+
+  // --- Widgets de Interfaz ---
+
+  Widget _buildHealthCard(int score) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF4A47F6), Color(0xFF7673FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        gradient: LinearGradient(
+          colors: score > 60 ? [const Color(0xFF4A47F6), const Color(0xFF7673FF)] : [Colors.orange, Colors.redAccent],
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text("Salud Financiera", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                SizedBox(height: 5),
-                Text("¡Excelente!", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                SizedBox(height: 5),
-                Text("Has ahorrado el 15% de tus ingresos este mes.", style: TextStyle(color: Colors.white, fontSize: 12)),
-              ],
-            ),
-          ),
-          Stack(
-            alignment: Alignment.center,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 60, height: 60,
-                child: CircularProgressIndicator(
-                  value: 0.85,
-                  strokeWidth: 8,
-                  backgroundColor: Colors.white24,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.greenAccent),
-                ),
-              ),
-              const Text("85", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text("Salud Financiera", style: TextStyle(color: Colors.white70)),
+              Text(score > 60 ? "¡Buen progreso!" : "Alerta de gastos",
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
             ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryPieChartPlaceholder() {
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        children: [
-          // Simulación de Pie Chart
-          const Expanded(
-            flex: 1,
-            child: CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.orange,
-              child: CircleAvatar(radius: 40, backgroundColor: Colors.white),
-            ),
           ),
-          const SizedBox(width: 20),
-          // Leyenda
-          Expanded(
-            flex: 1,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _legendItem(Colors.orange, "Comida", "45%"),
-                _legendItem(Colors.blue, "Renta", "30%"),
-                _legendItem(Colors.purple, "Ocio", "25%"),
-              ],
-            ),
-          )
+          Text("$score/100", style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  Widget _buildMonthlyBarChartPlaceholder() {
+  // --- NUEVA FUNCIÓN: Asigna el color de la cubeta según la categoría ---
+  Color _getCategoryColor(String category) {
+    // Convertimos a minúsculas para evitar errores de escritura
+    final cat = category.toLowerCase();
+
+    // Cubeta 1: Supervivencia (Naranja)
+    if (cat.contains('comida') || cat.contains('transporte') || cat.contains('vivienda') || cat.contains('ocio')) {
+      return Colors.orange;
+    }
+    // Cubeta 2: Santuario (Verde) - Por si en el futuro agregas esta categoría de gasto
+    else if (cat.contains('ahorro') || cat.contains('meta')) {
+      return Colors.green;
+    }
+    // Cubeta 3: Deudas (Rojo) - Por si registras el pago de una deuda como gasto
+    else if (cat.contains('deuda') || cat.contains('préstamo') || cat.contains('tarjeta')) {
+      return Colors.redAccent;
+    }
+    // Otros Gastos (Azul u otro color neutro)
+    else {
+      return const Color(0xFF4A47F6);
+    }
+  }
+
+  // --- WIDGET ACTUALIZADO ---
+  Widget _buildPieChartCard(Map<String, double> data) {
+    return Container(
+      height: 250,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: data.isEmpty
+          ? const Center(child: Text("Registra un gasto para ver tu gráfica", style: TextStyle(color: Colors.grey)))
+          : PieChart(
+        PieChartData(
+          sectionsSpace: 4,
+          centerSpaceRadius: 40,
+          sections: data.entries.map((e) {
+            return PieChartSectionData(
+              value: e.value,
+              title: e.key,
+              radius: 50,
+              titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              // Usamos nuestra nueva función mágica aquí:
+              color: _getCategoryColor(e.key),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarChartCard(double income, double expense) {
     return Container(
       height: 200,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          _barItem("Ene", 0.6, 0.4),
-          _barItem("Feb", 0.8, 0.5),
-          _barItem("Mar", 0.7, 0.9), // Mes crítico
-          _barItem("Abr", 0.9, 0.3), // Mes bueno
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopExpensesList() {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        children: [
-          _expenseTile(Icons.fastfood_outlined, "Alimentación", "Q 2,450", Colors.orange),
-          const Divider(height: 1),
-          _expenseTile(Icons.directions_car_outlined, "Transporte", "Q 800", Colors.blue),
-          const Divider(height: 1),
-          _expenseTile(Icons.movie_outlined, "Entretenimiento", "Q 400", Colors.purple),
-        ],
-      ),
-    );
-  }
-
-  // --- COMPONENTES ATÓMICOS ---
-
-  Widget _legendItem(Color color, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 12)),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  Widget _barItem(String label, double h1, double h2) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Container(width: 8, height: 100 * h1, color: Colors.green),
-            const SizedBox(width: 4),
-            Container(width: 8, height: 100 * h2, color: Colors.redAccent),
+      child: BarChart(
+        BarChartData(
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(show: false),
+          barGroups: [
+            BarChartGroupData(x: 0, barRods: [
+              BarChartRodData(toY: income, color: Colors.green, width: 20, borderRadius: BorderRadius.circular(4)),
+              BarChartRodData(toY: expense, color: Colors.redAccent, width: 20, borderRadius: BorderRadius.circular(4)),
+            ]),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-      ],
+      ),
     );
   }
 
-  Widget _expenseTile(IconData icon, String title, String amount, Color color) {
-    return ListTile(
-      leading: CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color, size: 20)),
-      title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      trailing: Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+  Widget _buildInsightsList(List<TransactionModel> expenses, NumberFormat format) {
+    return Column(
+      children: expenses.map((tx) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: ListTile(
+          leading: const CircleAvatar(backgroundColor: Color(0xFFF0F0FF), child: Icon(Icons.trending_up, color: Color(0xFF4A47F6))),
+          title: Text(tx.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: Text(tx.category),
+          trailing: Text(format.format(tx.amount), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        ),
+      )).toList(),
     );
   }
 }

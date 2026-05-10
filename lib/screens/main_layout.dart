@@ -1,6 +1,6 @@
 // Archivo: lib/screens/main_layout.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // Asegúrate de agregarlo al pubspec.yaml
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'budget_and_goals/budget_screen.dart';
 import 'education/education_screen.dart';
@@ -9,6 +9,7 @@ import 'profile/profile_screen.dart';
 import 'transactions/add_transaction_screen.dart';
 import 'budget_and_goals/add_debt_screen.dart';
 import 'sanctuary/add_goal_screen.dart';
+import 'reports/reports_screen.dart'; // <--- IMPORTACIÓN DE INFORMES
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -21,106 +22,53 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // PASO 6: Lista de pantallas principales (Navegación directa)
+  // Lista de pantallas actualizada con Informes en el índice 2
   final List<Widget> _screens = [
     const MainDashboardScreen(), // 0
     const BudgetScreen(),        // 1
-    const SanctuaryScreen(),     // 2
+    const ReportsScreen(),       // 2 (NUEVA)
+    const SanctuaryScreen(),     // 3
   ];
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = const Color(0xFF4A47F6); // Tu color principal
+    const Color primaryColor = Color(0xFF4A47F6);
 
     return Scaffold(
       key: _scaffoldKey,
-      // EL CUERPO cambia según la barra inferior
-      body: _screens[_currentIndex],
 
-      // EL DRAWER (Menú Lateral) para Educación y Perfil
-      drawer: Drawer(
-        child: Column(
-          children: [
-            UserAccountsDrawerHeader(
-              decoration: BoxDecoration(color: primaryColor),
-              accountName: const Text("Mi Progreso Financiero", style: TextStyle(fontWeight: FontWeight.bold)),
-              accountEmail: const Text("Configuración y Aprendizaje"),
-              currentAccountPicture: const CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, color: Color(0xFF4A47F6), size: 40),
+      // --- PERFIL ARRIBA (ACCESO RÁPIDO) ---
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: 70,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16, top: 10),
+            child: GestureDetector(
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_outline, color: primaryColor, size: 28),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.school_outlined),
-              title: const Text("Educación Financiera"),
-              onTap: () {
-                Navigator.pop(context); // Cierra el drawer
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationScreen()));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text("Mi Perfil / Ajustes"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-              },
-            ),
-            const Spacer(),
-            const Divider(),
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text("FinanzaGT v1.1", style: TextStyle(color: Colors.grey, fontSize: 12)),
-            )
-          ],
-        ),
-      ),
-
-      // PASO 7: SPEED DIAL (Botón flotante estilo X)
-      floatingActionButton: SpeedDial(
-        icon: Icons.add,
-        activeIcon: Icons.close,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        overlayColor: Colors.black,
-        overlayOpacity: 0.5,
-        spacing: 12,
-        spaceBetweenChildren: 12,
-        children: [
-          SpeedDialChild(
-            child: const Icon(Icons.remove_circle_outline),
-            backgroundColor: Colors.redAccent,
-            foregroundColor: Colors.white,
-            label: 'Nuevo Gasto',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddTransactionScreen())),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.add_circle_outline),
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            label: 'Nuevo Ingreso',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddTransactionScreen())),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.eco_outlined),
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            label: 'Meta Santuario',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddGoalScreen())),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.money_off_csred_outlined),
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-            label: 'Registrar Deuda',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddDebtScreen())),
           ),
         ],
       ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      drawer: _buildDrawer(context),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
 
-      // BARRA INFERIOR (Estilo UX original)
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _buildSpeedDial(primaryColor),
+
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
@@ -131,13 +79,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             children: [
               _buildNavItem(icon: Icons.dashboard_outlined, label: 'Inicio', index: 0),
               _buildNavItem(icon: Icons.account_balance_wallet_outlined, label: 'Presupuesto', index: 1),
-              const SizedBox(width: 40), // Espacio para el Speed Dial si estuviera al centro
-              _buildNavItem(icon: Icons.eco_outlined, label: 'Santuario', index: 2),
-              // Botón para abrir el Drawer (Educación/Perfil)
-              IconButton(
-                icon: const Icon(Icons.menu, color: Colors.grey),
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
+
+              const SizedBox(width: 40), // Espacio para el Speed Dial central
+
+              _buildNavItem(icon: Icons.analytics_outlined, label: 'Informes', index: 2), // <--- BOTÓN NUEVO
+              _buildNavItem(icon: Icons.eco_outlined, label: 'Santuario', index: 3),
             ],
           ),
         ),
@@ -156,7 +102,86 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, color: color, size: 24),
-          Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+          Text(
+              label,
+              style: TextStyle(color: color, fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpeedDial(Color primaryColor) {
+    return SpeedDial(
+      icon: Icons.add,
+      activeIcon: Icons.close,
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+      overlayColor: Colors.black,
+      overlayOpacity: 0.5,
+      spacing: 12,
+      spaceBetweenChildren: 12,
+      children: [
+        SpeedDialChild(
+          child: const Icon(Icons.receipt_long_outlined, color: Colors.white),
+          backgroundColor: Colors.redAccent,
+          label: 'Nuevo Gasto/Ingreso',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddTransactionScreen())),
+        ),
+        SpeedDialChild(
+          child: const Icon(Icons.eco_outlined, color: Colors.white),
+          backgroundColor: Colors.green,
+          label: 'Nueva Meta Santuario',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddGoalScreen())),
+        ),
+        SpeedDialChild(
+          child: const Icon(Icons.money_off_csred_outlined, color: Colors.white),
+          backgroundColor: Colors.orange,
+          label: 'Nueva Deuda',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddDebtScreen())),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Color(0xFF4A47F6)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text("Menú Principal", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                SizedBox(height: 10),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person_outline, color: Color(0xFF4A47F6)),
+            title: const Text("Mi Perfil"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.school_outlined, color: Color(0xFF4A47F6)),
+            title: const Text("Educación Financiera"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationScreen()));
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text("Configuración"),
+            onTap: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
