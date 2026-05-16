@@ -16,6 +16,9 @@ class UserProvider extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
   bool get isAnonymous => _currentUser?.isAnonymous ?? true;
 
+  // Interruptor Pro para la Versión 1.2
+  bool get isPro => _currentUser?.isPro ?? false;
+
   UserProvider() {
     _listenToAuthChanges();
   }
@@ -23,22 +26,35 @@ class UserProvider extends ChangeNotifier {
   void _listenToAuthChanges() {
     _authSubscription = _authRepo.authStateChanges.listen((User? firebaseUser) async {
       if (firebaseUser == null) {
+        // --- EL CAMBIO PRINCIPAL ESTÁ AQUÍ ---
+        // Ya NO forzamos el inicio de sesión anónimo.
+        // Simplemente limpiamos el usuario en memoria y notificamos a la app.
         _currentUser = null;
         notifyListeners();
 
-        try {
-          debugPrint("Iniciando sesión anónima automáticamente...");
-          await _authRepo.signInAnonymously();
-        } catch (e) {
-          debugPrint("Error en inicio silencioso: $e");
-        }
+        debugPrint("Estado: Sin sesión. Esperando decisión del usuario en WelcomeScreen.");
       } else {
+        // Si Firebase detecta una sesión (ya sea porque acaba de presionar el botón
+        // o porque ya tenía una sesión activa guardada), cargamos su perfil.
         await _loadOrCreateUserProfile(firebaseUser);
       }
     });
   }
 
-  // --- LÓGICA DE SINCRONIZACIÓN REAL (La que repara el perfil) ---
+  // --- REQUERIDO POR EL AUTH WRAPPER ---
+  Future<void> fetchUser(String uid) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (userDoc.exists) {
+        _currentUser = UserModel.fromFirestore(userDoc);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error al hacer fetchUser: $e");
+    }
+  }
+
+  // --- LÓGICA DE SINCRONIZACIÓN EN FIRESTORE ---
   Future<void> _loadOrCreateUserProfile(User firebaseUser) async {
     try {
       final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
@@ -51,19 +67,18 @@ class UserProvider extends ChangeNotifier {
           email: firebaseUser.email,
           safeToSpend: 0.0,
           netWorth: 0.0,
-          preferences: {'currency': 'GTQ'},
+          preferences: {},
           profileCompleted: false,
+          currency: null,
         );
 
         await _firestore.collection('users').doc(firebaseUser.uid).set(_currentUser!.toFirestore());
       } else {
-        // Sincronizamos el estado isAnonymous con Firebase Auth para evitar el bug de la vista
         _currentUser = UserModel.fromFirestore(userDoc).copyWith(
           isAnonymous: firebaseUser.isAnonymous,
           email: firebaseUser.email,
         );
 
-        // Si en la DB decía que era anónimo pero Firebase Auth dice que NO, actualizamos la DB
         if (userDoc.data()?['isAnonymous'] == true && !firebaseUser.isAnonymous) {
           await _firestore.collection('users').doc(firebaseUser.uid).update({
             'isAnonymous': false,
@@ -76,8 +91,6 @@ class UserProvider extends ChangeNotifier {
       debugPrint("Error al cargar perfil de usuario: $e");
     }
   }
-
-  // --- TUS MÉTODOS RESTAURADOS ---
 
   Future<void> updateFinancialHealth({
     required double totalIncomes,
@@ -120,7 +133,6 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // AQUÍ ESTÁ EL MÉTODO QUE FALTABA
   Future<void> completeUserProfile({
     required String name,
     required int age,
@@ -137,6 +149,7 @@ class UserProvider extends ChangeNotifier {
 
       _currentUser = _currentUser!.copyWith(
         displayName: name,
+        currency: currency,
         profileCompleted: true,
       );
       notifyListeners();

@@ -1,4 +1,5 @@
 // Archivo: lib/screens/auth/auth_screen.dart
+import 'package:finanzagt/screens/main_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'forgot_password_screen.dart';
@@ -38,7 +39,7 @@ class _AuthScreenState extends State<AuthScreen> {
           // Navegamos a WelcomeScreen indicando que NO es nuevo usuario
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const WelcomeScreen(isNewUser: false)),
+            MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
                 (route) => false,
           );
         }
@@ -59,7 +60,7 @@ class _AuthScreenState extends State<AuthScreen> {
           // Navegamos a WelcomeScreen indicando que SÍ es nuevo usuario
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const WelcomeScreen(isNewUser: true)),
+            MaterialPageRoute(builder: (context) => const WelcomeScreen()),
                 (route) => false,
           );
         }

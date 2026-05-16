@@ -11,6 +11,9 @@ class UserModel {
   final Map<String, dynamic> preferences;
   final bool profileCompleted;
 
+  // NUEVO: Campo para la configuración regional (Moneda)
+  final String? currency;
+
   UserModel({
     required this.uid,
     this.isAnonymous = true,
@@ -20,7 +23,11 @@ class UserModel {
     required this.netWorth,
     required this.preferences,
     this.profileCompleted = false,
+    this.currency, // Lo añadimos al constructor
   });
+// NUEVO: El "interruptor" inteligente del Plan Maestro 2.0
+  // Si NO es anónimo, entonces es usuario Pro (Registrado).
+  bool get isPro => !isAnonymous;
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
@@ -35,6 +42,8 @@ class UserModel {
       netWorth: (data['net_worth'] ?? 0.0).toDouble(),
       preferences: data['preferences'] ?? {},
       profileCompleted: data['profile_completed'] ?? false,
+      // NUEVO: Leemos la moneda desde Firebase (si no existe, queda nulo)
+      currency: data['currency'],
     );
   }
 
@@ -42,11 +51,13 @@ class UserModel {
     return {
       'isAnonymous': isAnonymous,
       'email': email,
-      'displayName': displayName, // Guardamos siempre como displayName para estandarizar
+      'displayName': displayName,
       'safe_balance': safeToSpend,
       'net_worth': netWorth,
       'preferences': preferences,
       'profile_completed': profileCompleted,
+      // NUEVO: Guardamos la moneda en Firebase
+      'currency': currency,
     };
   }
 
@@ -60,6 +71,7 @@ class UserModel {
     double? netWorth,
     Map<String, dynamic>? preferences,
     bool? profileCompleted,
+    String? currency, // Lo añadimos aquí
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -70,6 +82,7 @@ class UserModel {
       netWorth: netWorth ?? this.netWorth,
       preferences: preferences ?? this.preferences,
       profileCompleted: profileCompleted ?? this.profileCompleted,
+      currency: currency ?? this.currency, // Y lo actualizamos aquí
     );
   }
 }

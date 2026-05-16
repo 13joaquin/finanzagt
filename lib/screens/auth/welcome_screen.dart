@@ -1,96 +1,115 @@
-// Archivo: lib/screens/auth/welcome_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/user_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// Importamos las pantallas a donde vamos a dirigir al usuario
 import 'setup_profile_screen.dart';
 import '../main_layout.dart';
+import 'auth_screen.dart'; // <-- ASEGÚRATE DE IMPORTAR TU PANTALLA DE LOGIN
 
 class WelcomeScreen extends StatelessWidget {
-  // Parámetro crucial: nos dice si viene de registrarse o de iniciar sesión
-  final bool isNewUser;
-
-  const WelcomeScreen({super.key, required this.isNewUser});
+  const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Leemos el proveedor para obtener el nombre del usuario si ya existe
-    final userProvider = Provider.of<UserProvider>(context);
-    // Extraemos el nombre. Si es nuevo, dirá "Usuario" temporalmente.
-    final String userName = userProvider.currentUser?.displayName ?? 'Usuario';
+    const Color primaryColor = Color(0xFF4A47F6);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(40.0),
+          padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icono dinámico según si es nuevo o no
-              Icon(
-                  isNewUser ? Icons.celebration_rounded : Icons.waving_hand_rounded,
-                  size: 100,
-                  color: const Color(0xFF4A47F6)
-              ),
-              const SizedBox(height: 30),
+              const Spacer(),
+              const Icon(Icons.account_balance_wallet_rounded, size: 80, color: primaryColor),
+              const SizedBox(height: 20),
+              const Text("FinanzaGT", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              const Text("Tu dinero, bajo control.", style: TextStyle(color: Colors.grey)),
+              const Spacer(),
 
-              // Texto principal "Camaleón"
-              Text(
-                isNewUser ? "¡Gracias por unirte!" : "¡Bienvenido de vuelta,\n$userName!",
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, height: 1.2),
+              // BOTÓN 1: REGISTRARSE (Flujo Pro)
+              _buildButton(
+                text: "Crear una cuenta",
+                color: primaryColor,
+                textColor: Colors.white,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SetupProfileScreen()),
+                ),
               ),
+
               const SizedBox(height: 15),
 
-              // Subtítulo
-              Text(
-                isNewUser
-                    ? "Tus datos financieros ahora están seguros y guardados en la nube."
-                    : "Es excelente verte de nuevo. Continuemos tu camino financiero.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600], fontSize: 16, height: 1.5),
+              // BOTÓN 2: INICIAR SESIÓN (Para usuarios existentes)
+              _buildButton(
+                text: "Ya tengo cuenta",
+                color: Colors.white,
+                textColor: primaryColor,
+                isBorder: true,
+                onPressed: () {
+                  // Conectado directamente a tu pantalla de Login
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AuthScreen()),
+                  );
+                },
               ),
 
-              const SizedBox(height: 60),
+              const SizedBox(height: 20),
 
-              // Botón Único de Continuar con la Lógica de Navegación
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A47F6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    if (isNewUser) {
-                      // FLUJO REGISTRO: Va a configurar su perfil (Nombre, Edad, Moneda)
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SetupProfileScreen()),
-                      );
-                    } else {
-                      // FLUJO LOGIN: Como ya tiene perfil, lo mandamos directo al Layout
-                      // Usamos pushAndRemoveUntil para que no pueda regresar atrás
+              // OPCIÓN 3: INVITADO (Anonimato)
+              TextButton(
+                onPressed: () async {
+                  try {
+                    // 1. Iniciamos sesión en Firebase
+                    await FirebaseAuth.instance.signInAnonymously();
+
+                    // 2. NAVEGACIÓN MANUAL (Reemplaza al AuthWrapper)
+                    if (context.mounted) {
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
-                            (route) => false,
+                            (route) => false, // Esto destruye el historial para que no puedan regresar
                       );
                     }
-                  },
-                  child: const Text(
-                    "Continuar",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error al entrar: $e")));
+                  }
+                },
+                child: const Text(
+                  "Continuar como invitado",
+                  style: TextStyle(color: Colors.grey, decoration: TextDecoration.underline),
                 ),
               ),
+              const SizedBox(height: 30),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildButton({
+    required String text,
+    required Color color,
+    required Color textColor,
+    required VoidCallback onPressed,
+    bool isBorder = false
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+            side: isBorder ? const BorderSide(color: Color(0xFF4A47F6)) : BorderSide.none,
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(text, style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
       ),
     );
   }
