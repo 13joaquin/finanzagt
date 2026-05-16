@@ -1,4 +1,5 @@
 // Archivo: lib/main.dart
+import 'package:finanzagt/screens/auth/auth_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -32,19 +33,15 @@ void main() async {
   // 3. LÓGICA PARA DECIDIR LA PANTALLA INICIAL (Lo que buscabas)
   final prefs = await SharedPreferences.getInstance();
   final bool hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
-  final User? currentUser = FirebaseAuth.instance.currentUser;
 
   Widget screenPrincipal;
 
   if (!hasSeenOnboarding) {
     // Si es la primera vez que abre la app
     screenPrincipal = const OnboardingScreen();
-  } else if (currentUser == null) {
-    // Si ya vio el tutorial pero no ha iniciado sesión ni como invitado
-    screenPrincipal = const WelcomeScreen();
   } else {
     // Si ya tiene una sesión activa, entra directo
-    screenPrincipal = const MainLayoutScreen();
+    screenPrincipal = const AuthGate();
   }
 
   runApp(
