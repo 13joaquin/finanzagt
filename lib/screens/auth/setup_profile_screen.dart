@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
-import '../main_layout.dart'; // Importante: Redirigir al Layout, no solo al Dashboard
+import '../main_layout.dart';
 
 class SetupProfileScreen extends StatefulWidget {
   const SetupProfileScreen({super.key});
@@ -28,67 +28,90 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-cargamos el nombre si ya existe algo en el provider
+    // Pre-cargamos el nombre si ya existe algo en el provider (ej. si Firebase traía algo)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = context.read<UserProvider>().currentUser;
-      if (user != null && user.displayName != "Invitado") {
+      if (user != null && user.displayName.isNotEmpty && user.displayName != "Invitado") {
         _nameController.text = user.displayName;
       }
     });
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _ageController.dispose();
+    super.dispose();
+  }
+
+  // --- CONEXIÓN CON EL USERPROVIDER ---
   Future<void> _saveProfile() async {
     final name = _nameController.text.trim();
-    final ageText = _ageController.text.trim();
+    final ageString = _ageController.text.trim();
 
-    if (name.isEmpty || ageText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Por favor, completa tu nombre y edad")),
-      );
+    // 1. Validaciones de campos
+    if (name.isEmpty) {
+      _showSnackBar("Por favor, ingresa tu nombre");
       return;
     }
 
+    if (ageString.isEmpty) {
+      _showSnackBar("Por favor, ingresa tu edad");
+      return;
+    }
+
+    final int? age = int.tryParse(ageString);
+    if (age == null || age <= 0) {
+      _showSnackBar("Por favor, ingresa una edad válida");
+      return;
+    }
+
+    // 2. Ejecución del guardado a través del Provider
     setState(() => _isLoading = true);
 
     try {
       final userProvider = context.read<UserProvider>();
 
-      // Llamamos al método del Paso 1 que marca 'profile_completed: true'
       await userProvider.completeUserProfile(
         name: name,
-        age: int.parse(ageText),
+        age: age,
         currency: _selectedCurrency,
       );
 
+      // 3. Navegación Segura
       if (mounted) {
-        // ¡EL FINALIZADOR!
-        // Llevamos al usuario al Layout Principal donde están todos sus datos cargados.
-        Navigator.pushAndRemoveUntil(
+        // Aunque el AuthGate intercepta el cambio de estado de forma reactiva,
+        // hacemos un pushReplacement limpio hacia el MainLayoutScreen para asegurar el flujo visual.
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
-              (route) => false,
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al guardar: $e")),
-      );
+      if (mounted) {
+        _showSnackBar("Error al guardar el perfil: $e");
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final userEmail = userProvider.currentUser?.email ?? "Sin correo";
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Completar Perfil"),
-        elevation: 0,
+        title: const Text("Configura tu Perfil", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
+        elevation: 0,
         foregroundColor: Colors.black,
       ),
       body: SingleChildScrollView(
@@ -97,49 +120,27 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "¡Casi listo!",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Personaliza tu experiencia financiera para empezar a usar tus cubetas.",
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              "¡Te damos la bienvenida a FinanzaGT!\nQueremos conocerte un poco mejor para adaptar tu experiencia.",
+              style: TextStyle(color: Colors.grey, fontSize: 15),
             ),
             const SizedBox(height: 30),
 
-            // Campo de Correo (Solo lectura para confirmar)
-            _buildLabel("Tu cuenta vinculada:"),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_user, color: Colors.green, size: 20),
-                  const SizedBox(width: 10),
-                  Text(userEmail, style: const TextStyle(fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            _buildLabel("¿Cómo te llamas?"),
+            _buildLabel("Tu nombre"),
             TextField(
               controller: _nameController,
+              textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                hintText: "Ej. Juan Pérez",
+                hintText: "Ej. Carlos López",
+                prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF4A47F6)),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            _buildLabel("¿Qué moneda prefieres usar?"),
+            _buildLabel("Moneda principal"),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey),
                 borderRadius: BorderRadius.circular(15),
@@ -148,10 +149,12 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                 child: DropdownButton<String>(
                   value: _selectedCurrency,
                   isExpanded: true,
-                  items: _currencies.map((c) => DropdownMenuItem(
-                    value: c['symbol'],
-                    child: Text(c['name']!),
-                  )).toList(),
+                  items: _currencies.map((currency) {
+                    return DropdownMenuItem<String>(
+                      value: currency['symbol'],
+                      child: Text("${currency['name']} (${currency['symbol']})"),
+                    );
+                  }).toList(),
                   onChanged: (val) => setState(() => _selectedCurrency = val!),
                 ),
               ),
@@ -165,6 +168,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 hintText: "Ej. 25",
+                prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF4A47F6)),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
             ),
@@ -182,7 +186,10 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Comenzar mi viaje", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                    : const Text(
+                  "Comenzar mi viaje",
+                  style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -194,7 +201,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
     );
   }
 }
