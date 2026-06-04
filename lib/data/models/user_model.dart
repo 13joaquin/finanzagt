@@ -10,9 +10,8 @@ class UserModel {
   final double netWorth;
   final Map<String, dynamic> preferences;
   final bool profileCompleted;
-
-  // NUEVO: Campo para la configuración regional (Moneda)
   final String? currency;
+  final bool isPro;
 
   UserModel({
     required this.uid,
@@ -23,27 +22,28 @@ class UserModel {
     required this.netWorth,
     required this.preferences,
     this.profileCompleted = false,
-    this.currency, // Lo añadimos al constructor
+    this.currency,
+    this.isPro = false,
   });
-// NUEVO: El "interruptor" inteligente del Plan Maestro 2.0
-  // Si NO es anónimo, entonces es usuario Pro (Registrado).
-  bool get isPro => !isAnonymous;
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
+    // Aseguramos que la data se maneje como un mapa de objetos dinámicos
+    final data = doc.data() as Map<String, dynamic>? ?? {};
 
     return UserModel(
       uid: doc.id,
-      isAnonymous: data['isAnonymous'] ?? true,
-      email: data['email'],
-      // CORRECCIÓN: Busca 'displayName', si no existe busca 'name', y si tampoco, pone 'Invitado'
-      displayName: data['displayName'] ?? data['name'] ?? 'Invitado',
+      isAnonymous: data['isAnonymous'] as bool? ?? true,
+      // CORRECCIÓN: Casteo explícito a String? para evitar el error de Object?
+      email: data['email'] as String?,
+      displayName: data['displayName'] as String? ?? data['name'] as String? ?? 'Invitado',
       safeToSpend: (data['safe_balance'] ?? 0.0).toDouble(),
       netWorth: (data['net_worth'] ?? 0.0).toDouble(),
-      preferences: data['preferences'] ?? {},
-      profileCompleted: data['profile_completed'] ?? false,
-      // NUEVO: Leemos la moneda desde Firebase (si no existe, queda nulo)
-      currency: data['currency'],
+      // CORRECCIÓN: Casteo explícito del mapa de preferencias
+      preferences: data['preferences'] as Map<String, dynamic>? ?? {},
+      profileCompleted: data['profile_completed'] as bool? ?? false,
+      // CORRECCIÓN: Casteo explícito de la moneda para evitar el error de Object?
+      currency: data['currency'] as String?,
+      isPro: data['isPro'] as bool? ?? false,
     );
   }
 
@@ -55,13 +55,13 @@ class UserModel {
       'safe_balance': safeToSpend,
       'net_worth': netWorth,
       'preferences': preferences,
+      // CORRECCIÓN: Usando el nombre correcto de la variable (camelCase)
       'profile_completed': profileCompleted,
-      // NUEVO: Guardamos la moneda en Firebase
       'currency': currency,
+      'isPro': isPro,
     };
   }
 
-  // --- MÉTODO COPYWITH ---
   UserModel copyWith({
     String? uid,
     bool? isAnonymous,
@@ -71,7 +71,8 @@ class UserModel {
     double? netWorth,
     Map<String, dynamic>? preferences,
     bool? profileCompleted,
-    String? currency, // Lo añadimos aquí
+    String? currency,
+    bool? isPro,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -82,7 +83,8 @@ class UserModel {
       netWorth: netWorth ?? this.netWorth,
       preferences: preferences ?? this.preferences,
       profileCompleted: profileCompleted ?? this.profileCompleted,
-      currency: currency ?? this.currency, // Y lo actualizamos aquí
+      currency: currency ?? this.currency,
+      isPro: isPro ?? this.isPro,
     );
   }
 }

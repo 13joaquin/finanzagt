@@ -26,16 +26,10 @@ class UserProvider extends ChangeNotifier {
   void _listenToAuthChanges() {
     _authSubscription = _authRepo.authStateChanges.listen((User? firebaseUser) async {
       if (firebaseUser == null) {
-        // --- EL CAMBIO PRINCIPAL ESTÁ AQUÍ ---
-        // Ya NO forzamos el inicio de sesión anónimo.
-        // Simplemente limpiamos el usuario en memoria y notificamos a la app.
         _currentUser = null;
         notifyListeners();
-
         debugPrint("Estado: Sin sesión. Esperando decisión del usuario en WelcomeScreen.");
       } else {
-        // Si Firebase detecta una sesión (ya sea porque acaba de presionar el botón
-        // o porque ya tenía una sesión activa guardada), cargamos su perfil.
         await _loadOrCreateUserProfile(firebaseUser);
       }
     });
@@ -70,6 +64,7 @@ class UserProvider extends ChangeNotifier {
           preferences: {},
           profileCompleted: false,
           currency: null,
+          isPro: false,
         );
 
         await _firestore.collection('users').doc(firebaseUser.uid).set(_currentUser!.toFirestore());
@@ -89,6 +84,21 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("Error al cargar perfil de usuario: $e");
+    }
+  }
+  // --- NUEVO MÉTODO PARA GESTIONAR EL ESTADO PRO ---
+  Future<void> updateProStatus(bool status) async {
+    if (_currentUser == null) return;
+    try {
+      await _firestore.collection('users').doc(_currentUser!.uid).update({
+        'isPro': status,
+      });
+
+      _currentUser = _currentUser!.copyWith(isPro: status);
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error al actualizar estado Pro: $e");
+      rethrow;
     }
   }
 
