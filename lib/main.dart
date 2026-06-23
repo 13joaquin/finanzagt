@@ -1,10 +1,10 @@
 // Archivo: lib/main.dart
-import 'package:finanzagt/screens/auth/auth_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // 1. IMPORTANTE: Esto corrige el error de "FirebaseOptions cannot be null"
 import 'firebase_options.dart';
@@ -20,6 +20,7 @@ import 'providers/transaction_provider.dart';
 import 'screens/Onboarding/onboarding.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/main_layout.dart';
+import 'screens/auth/setup_profile_screen.dart';// Añadido para absorber la lógica de AuthGate
 
 void main() async {
   // Asegura que Flutter esté listo antes de iniciar Firebase
@@ -40,8 +41,36 @@ void main() async {
     // Si es la primera vez que abre la app
     screenPrincipal = const OnboardingScreen();
   } else {
-    // Si ya tiene una sesión activa, entra directo
-    screenPrincipal = const AuthGate();
+    // Ya vio el onboarding, verificamos Firebase Auth de forma sincrónica
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      // No hay sesión activa en el dispositivo
+      screenPrincipal = const WelcomeScreen();
+    } else {
+      // Hay sesión activa. Verificamos el estado del perfil.
+      if (currentUser.isAnonymous) {
+        // Invitados pasan directo
+        screenPrincipal = const MainLayoutScreen();
+      }else{
+        // Es cuenta registrada: Leemos Firestore una sola vez antes de arrancar
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+          if (userDoc.exists && (userDoc.data()?['profile_completed'] ?? true)) {
+            // Perfil completo -> Al Layout Principal
+            screenPrincipal = const MainLayoutScreen();
+          }else{
+            // Perfil incompleto o documento no creado -> A completar perfil
+            screenPrincipal = const SetupProfileScreen();
+          }
+        } catch (e) {
+          // Fallback seguro: Si hay error de red al iniciar, pasamos al layout para no bloquear la app
+          screenPrincipal = const MainLayoutScreen();
+        }
+      }
+    }
   }
 
   runApp(

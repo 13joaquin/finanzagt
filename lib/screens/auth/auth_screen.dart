@@ -1,10 +1,11 @@
 // Archivo: lib/screens/auth/auth_screen.dart
-import 'package:finanzagt/screens/auth/auth_gate.dart';
 import 'package:finanzagt/screens/main_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Añadido para verificar el perfil
 import 'forgot_password_screen.dart';
-import 'welcome_screen.dart'; // Importante para la redirección
+import 'welcome_screen.dart';
+import 'setup_profile_screen.dart'; // Añadido para la redirección manual segura
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -34,15 +35,30 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       if (_isLogin) {
         // --- FLUJO LOGIN (USUARIO EXISTENTE) ---
-        await _auth.signInWithEmailAndPassword(email: email, password: password);
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+        User? user = userCredential.user;
 
-        if (mounted) {
-          // Navegamos a WelcomeScreen indicando que NO es nuevo usuario
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const AuthGate()),
-                (route) => false,
-          );
+        if (mounted && user != null) {
+          // SPLASH BOOT: Verificamos el estado del perfil en Firestore de forma directa
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          Widget nextScreen;
+          if (userDoc.exists && (userDoc.data()?['profile_completed'] == true)) {
+            nextScreen = const MainLayoutScreen();
+          } else {
+            nextScreen = const SetupProfileScreen();
+          }
+
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => nextScreen),
+                  (route) => false,
+            );
+          }
         }
       } else {
         // --- FLUJO REGISTRO (CONVERSIÓN DE ANÓNIMO) ---
@@ -58,7 +74,7 @@ class _AuthScreenState extends State<AuthScreen> {
         }
 
         if (mounted) {
-          // Navegamos a WelcomeScreen indicando que SÍ es nuevo usuario
+          // Navegamos al Layout Principal
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
@@ -87,8 +103,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ... Tu diseño actual de UI se mantiene igual,
-    // pero asegúrate de que el botón use _submitAuth
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(

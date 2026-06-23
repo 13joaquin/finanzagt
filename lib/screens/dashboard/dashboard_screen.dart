@@ -16,6 +16,9 @@ import '../../providers/sanctuary_provider.dart';
 import '../../providers/GoalProvider.dart'; // Verifica que coincida con el nombre de tu archivo
 import '../../providers/debt_provider.dart';
 
+// NUEVA IMPORTACIÓN: Necesaria para redirigir al cerrar sesión bajo el enfoque Splash Boot
+import '../auth/welcome_screen.dart';
+
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({super.key});
 
@@ -231,7 +234,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.redAccent),
           onPressed: () async {
+            // 1. Cerramos la sesión en Firebase
             await FirebaseAuth.instance.signOut();
+            // 2. Redirección manual y segura bajo el enfoque Splash Boot
+            if (mounted) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                    (route) => false, // Elimina todas las pantallas previas del stack de navegación
+              );
+            }
           },
         ),
       ],

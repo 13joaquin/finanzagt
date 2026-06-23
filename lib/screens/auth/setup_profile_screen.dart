@@ -20,7 +20,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
 
   final List<Map<String, String>> _currencies = [
     {'symbol': 'GTQ', 'name': 'Quetzal (Guatemala)'},
-    {'symbol': 'USD', 'name': 'Dólar (EE.UU.)'},
+    {'symbol': 'USD', 'name': 'Dolar (EE.UU.)'},
     {'symbol': 'EUR', 'name': 'Euro (Europa)'},
     {'symbol': 'MXN', 'name': 'Peso (México)'},
   ];
@@ -78,13 +78,14 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
         currency: _selectedCurrency,
       );
 
-      // 3. Navegación Segura
+      // 3. CAMBIO CRÍTICO: Navegación Absoluta y Segura (Sincronizada con Splash Boot)
       if (mounted) {
-        // Aunque el AuthGate intercepta el cambio de estado de forma reactiva,
-        // hacemos un pushReplacement limpio hacia el MainLayoutScreen para asegurar el flujo visual.
-        Navigator.pushReplacement(
+        // Al no existir el AuthGate, destruimos todo el historial previo (WelcomeScreen, AuthScreen)
+        // para garantizar que el Layout Principal sea el origen definitivo del flujo.
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
+            (route) => false, // Rompe todo el historial de navegación de atrás
         );
       }
     } catch (e) {
