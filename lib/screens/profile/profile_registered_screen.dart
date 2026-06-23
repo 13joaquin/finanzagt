@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
+import '../auth/welcome_screen.dart'; // <-- NUEVA IMPORTACIÓN PARA EL SPLASH BOOT
 
 class ProfileRegisteredSection extends StatelessWidget {
   const ProfileRegisteredSection({super.key});
@@ -115,8 +116,16 @@ class ProfileRegisteredSection extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
-              Navigator.pop(context);
-              await provider.signOut();
+              Navigator.pop(context); // Cierra el diálogo
+              await provider.signOut(); // Cierra la sesión en Firebase
+              // CAMBIO CRÍTICO: Redirección manual del Splash Boot
+              if (context.mounted){
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                      (router) => false,
+                );
+              }
             },
             child: const Text('Cerrar Sesión', style: TextStyle(color: Colors.white)),
           ),
