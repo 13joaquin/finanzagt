@@ -15,6 +15,7 @@ import 'providers/sanctuary_provider.dart';
 import 'providers/debt_provider.dart';
 import 'providers/GoalProvider.dart';
 import 'providers/transaction_provider.dart';
+import 'providers/lesson_provider.dart';
 
 // Importaciones de Pantallas
 import 'screens/Onboarding/onboarding.dart';
@@ -78,6 +79,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => SanctuaryProvider()),
+        ChangeNotifierProvider(create: (_) => LessonProvider()),
 
         // Providers con dependencia de Usuario
         ChangeNotifierProxyProvider<UserProvider, GoalProvider>(
