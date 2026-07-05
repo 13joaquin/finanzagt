@@ -1,20 +1,38 @@
 import 'package:flutter/material.dart';
 
+class LessonStep {
+  final String title;
+  final String content;
+  final String? question;
+  final List<String>? options;
+  final int? correctOptionIndex;
+
+  const LessonStep({
+    required this.title,
+    required this.content,
+    this.question,
+    this.options,
+    this.correctOptionIndex,
+  });
+}
+
 class LessonModel {
   final String id;
   final String title;
   final String description;
   final bool isPremium;
-  final String level;
-  final IconData icon;
+  final String level;         // Agregado: Nivel de la lección
+  final IconData icon;        // Agregado: Ícono representativo
+  final List<LessonStep> steps;
 
   const LessonModel({
     required this.id,
     required this.title,
     required this.description,
-    required this.isPremium,
+    this.isPremium = false,
     required this.level,
     required this.icon,
+    this.steps = const [],    // Solución al error: valor por defecto vacío
   });
 }
 
