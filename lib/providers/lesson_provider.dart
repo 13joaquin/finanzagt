@@ -1,30 +1,42 @@
+// Archivo: lib/providers/lesson_provider.dart
 import 'package:flutter/material.dart';
 
 class LessonProvider extends ChangeNotifier {
-  // Estado de la lección
+  // --- Estado de la Lección Actual ---
   int _lives = 3;
-  double _progress = 0.0; // De 0.0 a 1.0
+  double _progress = 0.0;
   bool _isLessonCompleted = false;
   bool _isGameOver = false;
 
-  // Getters para que la UI consuma el estado
+  // --- Progreso Global (Memoria Local por ahora) ---
+  final List<String> _completedLessons = [];
+
+  // Getters
   int get lives => _lives;
   double get progress => _progress;
   bool get isLessonCompleted => _isLessonCompleted;
   bool get isGameOver => _isGameOver;
+  List<String> get completedLessons => _completedLessons;
 
-  /// Simulación de pasos para la lección de la regla 50/30/20
-  /// En una fase posterior, esto puede venir de Firestore.
-  final List<double> _progressSteps = [0.15, 0.40, 1.0];
-  int _currentStepIndex = 0;
+  // Verifica si una lección específica ya fue completada
+  bool isLessonDone(String lessonId) {
+    return _completedLessons.contains(lessonId);
+  }
 
-  /// Valida la respuesta del usuario en la trivia.
-  /// Retorna [true] si la respuesta es correcta, [false] si es incorrecta.
-  bool submitAnswer(bool isCorrect) {
+  // Marca una lección como completada en la ruta
+  void markLessonAsCompleted(String lessonId) {
+    if (!_completedLessons.contains(lessonId)) {
+      _completedLessons.add(lessonId);
+      notifyListeners();
+    }
+  }
+
+  // Lógica de validación de respuestas
+  bool submitAnswer(bool isCorrect, int totalSteps, int currentStep) {
     if (isGameOver || _isLessonCompleted) return false;
 
     if (isCorrect) {
-      _advanceProgress();
+      _advanceProgress(totalSteps, currentStep);
       return true;
     } else {
       _loseLife();
@@ -32,7 +44,6 @@ class LessonProvider extends ChangeNotifier {
     }
   }
 
-  /// Resta una vida y verifica si el usuario ha perdido.
   void _loseLife() {
     if (_lives > 0) {
       _lives--;
@@ -43,27 +54,19 @@ class LessonProvider extends ChangeNotifier {
     }
   }
 
-  /// Avanza el progreso según los pasos definidos.
-  void _advanceProgress() {
-    if (_currentStepIndex < _progressSteps.length) {
-      _progress = _progressSteps[_currentStepIndex];
-      _currentStepIndex++;
-
-      if (_progress >= 1.0) {
-        _isLessonCompleted = true;
-      }
-      notifyListeners();
+  void _advanceProgress(int totalSteps, int currentStep) {
+    _progress = (currentStep + 1) / totalSteps;
+    if (_progress >= 1.0) {
+      _isLessonCompleted = true;
     }
+    notifyListeners();
   }
 
-  /// Reinicia el estado para volver a intentar la lección.
-  /// Ideal para el botón de "Reintentar" en la pantalla de Game Over.
   void resetLesson() {
     _lives = 3;
     _progress = 0.0;
     _isLessonCompleted = false;
     _isGameOver = false;
-    _currentStepIndex = 0;
     notifyListeners();
   }
 }

@@ -16,6 +16,9 @@ class Lesson503020Screen extends StatefulWidget {
 class _Lesson503020ScreenState extends State<Lesson503020Screen> {
   final PageController _pageController = PageController();
 
+// 1. SOLUCIÓN: Nueva variable para rastrear en qué pantalla estamos
+  int _currentIndex = 0;
+
   // Variables de estado local para capturar las respuestas antes de validar
   int? _selectedTriviaOption;
   final TextEditingController _mathController = TextEditingController();
@@ -31,10 +34,15 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
   void _checkAnswer(bool isCorrect) {
     final lessonProvider = Provider.of<LessonProvider>(context, listen: false);
 
-    // El provider evalúa si pierde vida o avanza el progreso
-    bool success = lessonProvider.submitAnswer(isCorrect);
+    // 2. SOLUCIÓN: Enviamos la respuesta, el total de pantallas (4) y el índice actual
+    bool success = lessonProvider.submitAnswer(isCorrect, 4, _currentIndex);
 
     if (success) {
+      // 3. SOLUCIÓN: Aumentamos el índice localmente para la barra de progreso
+      setState(() {
+        _currentIndex++;
+      });
+
       // Avanzar a la siguiente pantalla
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
