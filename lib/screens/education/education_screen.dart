@@ -1,26 +1,42 @@
 // Archivo: lib/screens/education/education_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-// Importa tus pantallas de lecciones
-import 'lesson/lesson_50_30_20_screen.dart';
-import 'lesson/emergency_fund_edu_screen.dart';
+// Proveedores
+import '../../providers/user_provider.dart';
+import '../../providers/lesson_provider.dart';
+
+// Datos
+import '../../data/lesson_data.dart';
+import '../../data/models/lesson_model.dart';
+
+// Pantallas
+import 'lesson/interactive_lesson_screen.dart';
 
 class EducationScreen extends StatelessWidget {
   const EducationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Escuchamos el estado del usuario (para saber si es PRO)
+    final userProvider = Provider.of<UserProvider>(context);
+    final isPro = userProvider.isPro;
+
+    // Escuchamos el progreso de las lecciones
+    final lessonProvider = Provider.of<LessonProvider>(context);
+
+    // Separamos las lecciones por nivel
+    final nivel1Lessons = appLessonsRoute.where((l) => l.level == 'Nivel 1').toList();
+    final nivel2Lessons = appLessonsRoute.where((l) => l.level == 'Nivel 2').toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // CORRECCIÓN: Botón explícito para regresar al Dashboard inicial
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(
@@ -63,29 +79,16 @@ class EducationScreen extends StatelessWidget {
             _buildSectionTitle('Nivel 1: Fundamentos', Icons.foundation),
             const SizedBox(height: 15),
 
-            _buildLessonCard(
-              context: context,
-              title: 'El Escudo Financiero',
-              description: 'Aprende qué es el fondo de emergencia y por qué te da paz mental.',
-              icon: Icons.security_rounded,
-              color: const Color(0xFF1976D2),
-              isLocked: false,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const EmergencyFundEduScreen()));
-              },
-            ),
-
-            _buildLessonCard(
-              context: context,
-              title: 'La Regla 50/30/20',
-              description: 'El mapa más sencillo para distribuir tu salario sin estrés.',
-              icon: Icons.pie_chart_rounded,
-              color: const Color(0xFFE64A19),
-              isLocked: false,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const Lesson503020Screen()));
-              },
-            ),
+            ...nivel1Lessons.map((lesson) {
+              final isCompleted = lessonProvider.isLessonDone(lesson.id);
+              return _buildLessonCard(
+                context: context,
+                lesson: lesson,
+                isCompleted: isCompleted,
+                isLocked: false, // Nivel 1 siempre está desbloqueado
+                color: const Color(0xFF1976D2),
+              );
+            }),
 
             const SizedBox(height: 30),
 
@@ -93,19 +96,19 @@ class EducationScreen extends StatelessWidget {
             _buildSectionTitle('Nivel 2: Crecimiento', Icons.trending_up_rounded),
             const SizedBox(height: 15),
 
-            _buildLessonCard(
-              context: context,
-              title: 'Inflación de Estilo de Vida',
-              description: 'Ganas más, pero el dinero no alcanza. ¿Por qué ocurre esto?',
-              icon: Icons.shopping_bag_rounded,
-              color: Colors.grey,
-              isLocked: true,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Termina el Nivel 1 para desbloquear esta lección.')),
-                );
-              },
-            ),
+            ...nivel2Lessons.map((lesson) {
+              final isCompleted = lessonProvider.isLessonDone(lesson.id);
+              final isLocked = !isPro; // Se bloquea si no es PRO
+
+              return _buildLessonCard(
+                context: context,
+                lesson: lesson,
+                isCompleted: isCompleted,
+                isLocked: isLocked,
+                color: const Color(0xFFE64A19),
+              );
+            }),
+
             const SizedBox(height: 100),
           ],
         ),
@@ -128,65 +131,148 @@ class EducationScreen extends StatelessWidget {
 
   Widget _buildLessonCard({
     required BuildContext context,
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
+    required LessonModel lesson,
+    required bool isCompleted,
     required bool isLocked,
-    required VoidCallback onTap,
+    required Color color,
   }) {
+    // Si la lección está bloqueada, mostramos tonos grises.
+    final cardColor = isLocked ? Colors.grey : color;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+        side: BorderSide(
+          color: isCompleted ? Colors.green.withOpacity(0.5) : Colors.grey.withOpacity(0.15),
+          width: isCompleted ? 2 : 1,
+        ),
       ),
       color: Colors.white,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          if (isLocked) {
+            _showProPaywall(context);
+          } else {
+            // ¡MAGIA! Navegamos al reproductor interactivo pasando los datos de la lección.
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => InteractiveLessonScreen(lesson: lesson),
+              ),
+            );
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
+              // Ícono Circular
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: isCompleted ? Colors.green.withOpacity(0.1) : cardColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(isLocked ? Icons.lock_rounded : icon, color: isLocked ? Colors.grey[400] : color, size: 30),
+                child: Icon(
+                  isCompleted ? Icons.check_circle_rounded : (isLocked ? Icons.lock_rounded : lesson.icon),
+                  color: isCompleted ? Colors.green : (isLocked ? Colors.grey[400] : cardColor),
+                  size: 30,
+                ),
               ),
               const SizedBox(width: 15),
+              // Textos
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isLocked ? Colors.grey[600] : Colors.blueGrey[900],
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            lesson.title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isLocked ? Colors.grey[600] : Colors.blueGrey[900],
+                            ),
+                          ),
+                        ),
+                        // Etiqueta PRO
+                        if (lesson.isPremium && isLocked)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'PRO',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber),
+                            ),
+                          )
+                      ],
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      description,
+                      lesson.description,
                       style: TextStyle(fontSize: 13, color: Colors.grey[500], height: 1.3),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
+              // Botón de Play
               Icon(
                 isLocked ? Icons.lock_outline : Icons.play_circle_fill_rounded,
-                color: isLocked ? Colors.grey[300] : color,
+                color: isLocked ? Colors.grey[300] : cardColor,
                 size: 32,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showProPaywall(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 60),
+            const SizedBox(height: 16),
+            const Text(
+              'Nivel PRO Requerido',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Para desbloquear el Nivel 2 y aprender sobre Inflación de Estilo, Deudas e Inversión, necesitas actualizar a Finavid PRO.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context), // Aquí irá la pasarela luego
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber[800],
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('VER PLANES PRO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
         ),
       ),
     );

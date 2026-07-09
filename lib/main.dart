@@ -79,7 +79,6 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => SanctuaryProvider()),
-        ChangeNotifierProvider(create: (_) => LessonProvider()),
 
         // Providers con dependencia de Usuario
         ChangeNotifierProxyProvider<UserProvider, GoalProvider>(
@@ -104,6 +103,14 @@ void main() async {
             final uid = userProvider.currentUser?.uid;
             if (uid != null) transactionProvider!..listenToTransactions(uid);
             return transactionProvider!;
+          },
+        ),
+        ChangeNotifierProxyProvider<UserProvider, LessonProvider>(
+          create: (_) => LessonProvider(),
+          update: (_, userProvider, lessonProvider) {
+            final uid = userProvider.currentUser?.uid;
+            lessonProvider!..initializeUser(uid);
+            return lessonProvider!;
           },
         ),
       ],

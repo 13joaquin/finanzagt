@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:finanzagt/data/models/lesson_model.dart';
-import 'package:finanzagt/screens/education/lesson/emergency_fund_edu_screen.dart';// Tu pantalla actual
+// ¡SOLUCIÓN! Agregamos la ruta de los datos para que encuentre appLessonsRoute
+import 'package:finanzagt/data/lesson_data.dart';
+import 'package:finanzagt/screens/education/lesson/emergency_fund_edu_screen.dart';
 
 class LearningPathScreen extends StatelessWidget {
   // Simulamos los datos que vendrían del estado (ej. Riverpod o Provider)
@@ -86,14 +88,12 @@ class LearningPathScreen extends StatelessWidget {
               }
 
               // Navegación a la lección activa
-              // Aquí conectamos con tu archivo emergency_fund_edu_screen.dart
               if (lesson.id == 'lesson_01') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const EmergencyFundEduScreen()),
                 );
               } else {
-                // Navegación a otras lecciones en el futuro
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Abriendo: ${lesson.title}...')),
                 );
