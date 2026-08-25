@@ -1,6 +1,6 @@
-# finanzagt
+# Finanzas GT
 
-A new Flutter project.
+A new Flutter project, about a personal finance mobile application
 
 ## Proyect the University
 

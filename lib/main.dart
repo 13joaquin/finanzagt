@@ -1,5 +1,6 @@
 // Archivo: lib/main.dart
 import 'package:flutter/material.dart';
+/*
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -139,6 +140,24 @@ class MyApp extends StatelessWidget {
       ),
       // 5. AQUÍ SE USA: Ya no es fijo OnboardingScreen, ahora es dinámico
       home: pantallaInicial,
+    );
+  }
+}*/
+
+void main(){
+  runApp(const MyApp());
+}
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text("Hola Mundo"),
+        )
+      ),
     );
   }
 }
