@@ -1,22 +1,24 @@
 // Archivo: lib/screens/education/lesson/lesson_50_30_20_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../transactions/data/providers/transaction_provider.dart';
+import '../../../data/providers/lesson_provider.dart';
 
 // Ajusta estas rutas relativas según tu estructura exacta
-import '../data/providers/lesson_provider.dart';
-import '../../../screens/transactions/data/providers/transaction_provider.dart';
 
-class Lesson503020Screen extends StatefulWidget {
+
+class Lesson503020Screen extends ConsumerStatefulWidget {
   const Lesson503020Screen({super.key});
 
   @override
-  State<Lesson503020Screen> createState() => _Lesson503020ScreenState();
+  ConsumerState<Lesson503020Screen> createState() => _Lesson503020ScreenState();
 }
 
-class _Lesson503020ScreenState extends State<Lesson503020Screen> {
+class _Lesson503020ScreenState extends ConsumerState<Lesson503020Screen> {
   final PageController _pageController = PageController();
 
-// 1. SOLUCIÓN: Nueva variable para rastrear en qué pantalla estamos
+  // 1. SOLUCIÓN: Nueva variable para rastrear en qué pantalla estamos
   int _currentIndex = 0;
 
   // Variables de estado local para capturar las respuestas antes de validar
@@ -32,10 +34,10 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
   }
 
   void _checkAnswer(bool isCorrect) {
-    final lessonProvider = Provider.of<LessonProvider>(context, listen: false);
+    final lessonNotifier = ref.read(lessonProvider.notifier);
 
     // 2. SOLUCIÓN: Enviamos la respuesta, el total de pantallas (4) y el índice actual
-    bool success = lessonProvider.submitAnswer(isCorrect, 4, _currentIndex);
+    bool success = lessonNotifier.submitAnswer(isCorrect, 4, _currentIndex);
 
     if (success) {
       // 3. SOLUCIÓN: Aumentamos el índice localmente para la barra de progreso
@@ -50,7 +52,7 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
       );
     } else {
       // Mostrar feedback de error (Bottom Sheet)
-      _showErrorBottomSheet(lessonProvider.lives);
+      _showErrorBottomSheet(lessonNotifier.lives);
     }
   }
 
@@ -107,7 +109,9 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
                 onPressed: () {
                   Navigator.pop(context); // Cierra el modal
                   if (remainingLives == 0) {
-                    Navigator.pop(context); // Saca al usuario de la lección si perdió
+                    Navigator.pop(
+                      context,
+                    ); // Saca al usuario de la lección si perdió
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -119,9 +123,10 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
                 child: const Text(
                   'ENTENDIDO',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -134,7 +139,8 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
   @override
   Widget build(BuildContext context) {
     // Escuchamos al provider para dibujar el encabezado
-    final lessonProvider = Provider.of<LessonProvider>(context);
+    ref.watch(lessonProvider); // Reconstruye cuando cambian vidas/progreso
+    final lessonNotifier = ref.read(lessonProvider.notifier);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -142,13 +148,14 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
         child: Column(
           children: [
             // COMPONENTE COMÚN: Encabezado Duolingo-Style
-            _buildHeader(lessonProvider),
+            _buildHeader(lessonNotifier),
 
             // CONTENIDO: Páginas dinámicas
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // Evita swipe libre
+                physics:
+                const NeverScrollableScrollPhysics(), // Evita swipe libre
                 children: [
                   _buildPantalla1Trivia(),
                   _buildPantalla2Matematica(),
@@ -216,32 +223,39 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
           const Text(
             '💡 APRENDAMOS CONCEPTOS',
             style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'Si pagas el recibo de Luz (EEGSA) de tu casa, ¿en qué porcentaje de la regla clasifica?',
             style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueGrey[900]),
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey[900],
+            ),
           ),
           const SizedBox(height: 32),
           _buildOptionCard(
-              index: 0,
-              text: '50% - Necesidades Básicas',
-              isSelected: _selectedTriviaOption == 0,
-              onTap: () => setState(() => _selectedTriviaOption = 0)),
+            index: 0,
+            text: '50% - Necesidades Básicas',
+            isSelected: _selectedTriviaOption == 0,
+            onTap: () => setState(() => _selectedTriviaOption = 0),
+          ),
           _buildOptionCard(
-              index: 1,
-              text: '30% - Deseos y Gustos',
-              isSelected: _selectedTriviaOption == 1,
-              onTap: () => setState(() => _selectedTriviaOption = 1)),
+            index: 1,
+            text: '30% - Deseos y Gustos',
+            isSelected: _selectedTriviaOption == 1,
+            onTap: () => setState(() => _selectedTriviaOption = 1),
+          ),
           _buildOptionCard(
-              index: 2,
-              text: '20% - Ahorro e Inversión',
-              isSelected: _selectedTriviaOption == 2,
-              onTap: () => setState(() => _selectedTriviaOption = 2)),
+            index: 2,
+            text: '20% - Ahorro e Inversión',
+            isSelected: _selectedTriviaOption == 2,
+            onTap: () => setState(() => _selectedTriviaOption = 2),
+          ),
           const Spacer(),
           _buildComprobarButton(
             isActive: _selectedTriviaOption != null,
@@ -265,15 +279,19 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
           const Text(
             '🧮 EL RETO DE LOS NÚMEROS',
             style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'Si una persona en Guatemala gana un ingreso mensual de Q5,000...\n\n¿Cuánto es lo MÁXIMO que debería gastar en sus Necesidades Básicas (50%)?',
             style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueGrey[900]),
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey[900],
+            ),
           ),
           const SizedBox(height: 40),
           Center(
@@ -286,24 +304,30 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
               ),
               child: Row(
                 children: [
-                  const Text('Q',
-                      style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue)),
+                  const Text(
+                    'Q',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       controller: _mathController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Escribe...',
                         hintStyle: TextStyle(fontSize: 18),
                       ),
-                      onChanged: (val) => setState(() {}), // Para activar el botón
+                      onChanged: (val) =>
+                          setState(() {}), // Para activar el botón
                     ),
                   ),
                 ],
@@ -326,101 +350,120 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
 
   // 🎨 PANTALLA 3: Espejo Real (Conexión con el TransactionProvider)
   Widget _buildPantalla3EspejoReal() {
-    return Consumer<TransactionProvider>(
-      builder: (context, txProvider, child) {
-        // Lógica: Calcular el total de ingresos y el gasto en "Deseos"
-        double ingresos = txProvider.totalIncomes;
+    // Escuchamos las transacciones vía Riverpod (reemplaza al Consumer<TransactionProvider>)
+    final transactions = ref.watch(transactionProvider);
+    final txNotifier = ref.read(transactionProvider.notifier);
 
-        // Asumiendo que la categoría exacta usada en el App es esta
-        double deseosGasto = txProvider.transactions
-            .where((t) => t.category == 'Gastos Flexibles y Discrecionales' && t.type == 'expense')
-            .fold(0.0, (sum, item) => sum + item.amount);
+    // Lógica: Calcular el total de ingresos y el gasto en "Deseos"
+    double ingresos = txNotifier.totalIncomes;
 
-        // Si es usuario nuevo y no tiene ingresos registrados
-        if (ingresos == 0) {
-          return _buildEmptyStateEspejoReal();
-        }
+    // Asumiendo que la categoría exacta usada en el App es esta
+    double deseosGasto = transactions
+        .where(
+          (t) =>
+      t.category == 'Gastos Flexibles y Discrecionales' &&
+          t.type == 'expense',
+    )
+        .fold(0.0, (sum, item) => sum + item.amount);
 
-        double porcentajeDeseos = (deseosGasto / ingresos) * 100;
-        bool sePaso = porcentajeDeseos > 30.0;
+    // Si es usuario nuevo y no tiene ingresos registrados
+    if (ingresos == 0) {
+      return _buildEmptyStateEspejoReal();
+    }
 
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    double porcentajeDeseos = (deseosGasto / ingresos) * 100;
+    bool sePaso = porcentajeDeseos > 30.0;
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '🔍 TU ESPEJO FINANCIERO',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: sePaso ? Colors.orange[50] : Colors.green[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: sePaso ? Colors.orange : Colors.green,
+                width: 2,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Analizando tus transacciones de este mes...',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Has gastado Q${deseosGasto.toStringAsFixed(0)} en "Deseos", lo que representa un ${porcentajeDeseos.toStringAsFixed(1)}% de tus ingresos.',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                sePaso
+                    ? Text(
+                  '⚠️ Te has pasado por un ${(porcentajeDeseos - 30).toStringAsFixed(1)}% del límite recomendado.',
+                  style: TextStyle(
+                    color: Colors.orange[900],
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+                    : Text(
+                  '✅ ¡Excelente! Estás bajo el límite seguro del 30%.',
+                  style: TextStyle(
+                    color: Colors.green[900],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          const Text(
+            '¿Lograste mantenerte bajo el límite?',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          Row(
             children: [
-              const Text(
-                '🔍 TU ESPEJO FINANCIERO',
-                style: TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: sePaso ? Colors.orange[50] : Colors.green[50],
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: sePaso ? Colors.orange : Colors.green, width: 2),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Analizando tus transacciones de este mes...',
-                        style: TextStyle(fontSize: 16)),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Has gastado Q${deseosGasto.toStringAsFixed(0)} en "Deseos", lo que representa un ${porcentajeDeseos.toStringAsFixed(1)}% de tus ingresos.',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    sePaso
-                        ? Text(
-                        '⚠️ Te has pasado por un ${(porcentajeDeseos - 30).toStringAsFixed(1)}% del límite recomendado.',
-                        style: TextStyle(
-                            color: Colors.orange[900],
-                            fontWeight: FontWeight.bold))
-                        : Text(
-                        '✅ ¡Excelente! Estás bajo el límite seguro del 30%.',
-                        style: TextStyle(
-                            color: Colors.green[900],
-                            fontWeight: FontWeight.bold)),
-                  ],
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _checkAnswer(true), // Ambos avanzan
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('Sí, voy bien 👍'),
                 ),
               ),
-              const Spacer(),
-              const Text(
-                '¿Lograste mantenerte bajo el límite?',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+              const SizedBox(width: 16),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _checkAnswer(true), // Ambos avanzan
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('No, me pasé 😅'),
+                ),
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _checkAnswer(true), // Ambos avanzan
-                      style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16)),
-                      child: const Text('Sí, voy bien 👍'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _checkAnswer(true), // Ambos avanzan
-                      style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16)),
-                      child: const Text('No, me pasé 😅'),
-                    ),
-                  ),
-                ],
-              )
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -430,7 +473,11 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.dashboard_customize_rounded, size: 80, color: Colors.blue[200]),
+          Icon(
+            Icons.dashboard_customize_rounded,
+            size: 80,
+            color: Colors.blue[200],
+          ),
           const SizedBox(height: 24),
           const Text(
             '¡Activa tu auditoría en tiempo real!',
@@ -448,7 +495,7 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
             isActive: true,
             buttonText: 'CONTINUAR LECCIÓN',
             onPressed: () => _checkAnswer(true),
-          )
+          ),
         ],
       ),
     );
@@ -464,47 +511,68 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
           const Text(
             '🎯 COMPROMISO DE LA SEMANA',
             style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'Para equilibrar tu regla esta semana y evitar el gasto hormiga, ¿en qué categoría vas a recortar gastos?',
             style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueGrey[900]),
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey[900],
+            ),
           ),
           const SizedBox(height: 24),
           _buildOptionCard(
-              index: 0,
-              text: '🍔 Comida Fuera (Fast Food)',
-              isSelected: _selectedCommitmentOption == 0,
-              onTap: () => setState(() => _selectedCommitmentOption = 0)),
+            index: 0,
+            text: '🍔 Comida Fuera (Fast Food)',
+            isSelected: _selectedCommitmentOption == 0,
+            onTap: () => setState(() => _selectedCommitmentOption = 0),
+          ),
           _buildOptionCard(
-              index: 1,
-              text: '🎬 Entretenimiento (Streaming/Cine)',
-              isSelected: _selectedCommitmentOption == 1,
-              onTap: () => setState(() => _selectedCommitmentOption = 1)),
+            index: 1,
+            text: '🎬 Entretenimiento (Streaming/Cine)',
+            isSelected: _selectedCommitmentOption == 1,
+            onTap: () => setState(() => _selectedCommitmentOption = 1),
+          ),
           _buildOptionCard(
-              index: 2,
-              text: '🛍️ Ropa y Compras Varias',
-              isSelected: _selectedCommitmentOption == 2,
-              onTap: () => setState(() => _selectedCommitmentOption = 2)),
+            index: 2,
+            text: '🛍️ Ropa y Compras Varias',
+            isSelected: _selectedCommitmentOption == 2,
+            onTap: () => setState(() => _selectedCommitmentOption = 2),
+          ),
           const Spacer(),
           _buildComprobarButton(
             isActive: _selectedCommitmentOption != null,
             buttonText: 'FINALIZAR LECCIÓN 🎉',
-            onPressed: () {
+            onPressed: () async {
               // Limpiar y salir de forma exitosa
-              Provider.of<LessonProvider>(context, listen: false).resetLesson();
+              final lessonNotifier = ref.read(lessonProvider.notifier);
+              final messenger = ScaffoldMessenger.of(context);
+
+              final success = lessonNotifier.submitAnswer(
+                true,
+                4,
+                _currentIndex,
+              );
+              if (!success) return;
+              await lessonNotifier.markLessonAsCompleted('lesson_03');
+              lessonNotifier.resetLesson();
+              if (!context.mounted) return;
+
               Navigator.pop(context);
 
               // Opcional: Mostrar un snackbar de felicitación
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('¡Lección completada! Ganaste +10 Puntos Finavid.'),
-                    backgroundColor: Colors.green,
-                  )
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    '¡Lección completada! Ganaste +10 Puntos Finavid.',
+                  ),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
           ),
@@ -514,30 +582,36 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
   }
 
   // Utilidad: Tarjeta de opción seleccionable
-  Widget _buildOptionCard(
-      {required int index,
-        required String text,
-        required bool isSelected,
-        required VoidCallback onTap}) {
+  Widget _buildOptionCard({
+    required int index,
+    required String text,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.white,
+          color: isSelected ? Colors.blue.withValues(alpha: 0.1) : Colors.white,
           border: Border.all(
-              color: isSelected ? Colors.blue : Colors.grey[300]!, width: 2),
+            color: isSelected ? Colors.blue : Colors.grey[300]!,
+            width: 2,
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? Colors.blue[900] : Colors.black87)),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.blue[900] : Colors.black87,
+                ),
+              ),
             ),
           ],
         ),
@@ -546,8 +620,11 @@ class _Lesson503020ScreenState extends State<Lesson503020Screen> {
   }
 
   // Utilidad: Botón de acción genérico
-  Widget _buildComprobarButton(
-      {required bool isActive, required VoidCallback onPressed, String buttonText = 'COMPROBAR'}) {
+  Widget _buildComprobarButton({
+    required bool isActive,
+    required VoidCallback onPressed,
+    String buttonText = 'COMPROBAR',
+  }) {
     return SizedBox(
       width: double.infinity,
       height: 54,

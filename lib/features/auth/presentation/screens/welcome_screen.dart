@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'setup_profile_screen.dart';
 import '../../../../app/layout/main_layout.dart';
-import 'auth_screen.dart'; // <-- ASEGÚRATE DE IMPORTAR TU PANTALLA DE LOGIN
+import 'auth_screen.dart';
+
+
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});

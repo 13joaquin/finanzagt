@@ -1,17 +1,20 @@
 // Archivo: lib/screens/auth/setup_profile_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '';
 import '../../../../app/layout/main_layout.dart';
+import '../providers/user_provider.dart';
 
-class SetupProfileScreen extends StatefulWidget {
+
+class SetupProfileScreen extends ConsumerStatefulWidget {
   const SetupProfileScreen({super.key});
 
   @override
-  State<SetupProfileScreen> createState() => _SetupProfileScreenState();
+  ConsumerState<SetupProfileScreen> createState() =>
+      _SetupProfileScreenState();
 }
 
-class _SetupProfileScreenState extends State<SetupProfileScreen> {
+class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
 
@@ -30,8 +33,10 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
     super.initState();
     // Pre-cargamos el nombre si ya existe algo en el provider (ej. si Firebase traía algo)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = context.read<UserProvider>().currentUser;
-      if (user != null && user.displayName.isNotEmpty && user.displayName != "Invitado") {
+      final user = ref.read(userProvider);
+      if (user != null &&
+          user.displayName.isNotEmpty &&
+          user.displayName != "Invitado") {
         _nameController.text = user.displayName;
       }
     });
@@ -70,9 +75,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userProvider = context.read<UserProvider>();
-
-      await userProvider.completeUserProfile(
+      await ref.read(userProvider.notifier).completeUserProfile(
         name: name,
         age: age,
         currency: _selectedCurrency,
@@ -85,7 +88,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
-            (route) => false, // Rompe todo el historial de navegación de atrás
+              (route) => false, // Rompe todo el historial de navegación de atrás
         );
       }
     } catch (e) {
@@ -110,7 +113,10 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Configura tu Perfil", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Configura tu Perfil",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -132,8 +138,13 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 hintText: "Ej. Carlos López",
-                prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF4A47F6)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                prefixIcon: const Icon(
+                  Icons.person_outline,
+                  color: Color(0xFF4A47F6),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
             ),
 
@@ -153,10 +164,13 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                   items: _currencies.map((currency) {
                     return DropdownMenuItem<String>(
                       value: currency['symbol'],
-                      child: Text("${currency['name']} (${currency['symbol']})"),
+                      child: Text(
+                        "${currency['name']} (${currency['symbol']})",
+                      ),
                     );
                   }).toList(),
-                  onChanged: (val) => setState(() => _selectedCurrency = val!),
+                  onChanged: (val) =>
+                      setState(() => _selectedCurrency = val!),
                 ),
               ),
             ),
@@ -169,8 +183,13 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 hintText: "Ej. 25",
-                prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF4A47F6)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                prefixIcon: const Icon(
+                  Icons.cake_outlined,
+                  color: Color(0xFF4A47F6),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
             ),
 
@@ -183,13 +202,19 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                 onPressed: _isLoading ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4A47F6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                   "Comenzar mi viaje",
-                  style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -202,7 +227,10 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      child: Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      ),
     );
   }
 }

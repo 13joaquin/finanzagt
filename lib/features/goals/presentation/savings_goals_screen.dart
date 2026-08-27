@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // IMPORTACIONES DE TU ARQUITECTURA
-import '../data/models/goal_model.dart';
-import '../../sanctuary/data/repositories/goal_repository.dart';
-import '../../../features/auth/presentation/providers/user_provider.dart';
-// 1. IMPORTAMOS EL TRANSACTION PROVIDER PARA EL "DOBLE MOVIMIENTO"
-import '../../transactions/data/providers/transaction_provider.dart';
-import '../../transactions/models/transaction_model.dart';
 
-class SavingsGoalsScreen extends StatefulWidget {
+
+// 1. IMPORTAMOS EL TRANSACTION PROVIDER PARA EL "DOBLE MOVIMIENTO"
+import '../../auth/presentation/providers/user_provider.dart';
+import '../../transactions/data/models/transaction_model.dart';
+import '../../transactions/data/providers/transaction_provider.dart';
+import '../data/models/goal_model.dart';
+import '../data/repositories/goal_repository.dart';
+
+
+class SavingsGoalsScreen extends ConsumerStatefulWidget {
   const SavingsGoalsScreen({super.key});
 
   @override
-  State<SavingsGoalsScreen> createState() => _SavingsGoalsScreenState();
+  ConsumerState<SavingsGoalsScreen> createState() => _SavingsGoalsScreenState();
 }
 
-class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
+class _SavingsGoalsScreenState extends ConsumerState<SavingsGoalsScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
   final GoalRepository _goalRepo = GoalRepository(); // Instanciamos el repo una vez
@@ -94,13 +97,18 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
       debugPrint("Error gastando de la meta: $e");
     }
   }
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _titleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     // 3. OBTENEMOS LOS PROVIDERS
-    final userProvider = Provider.of<UserProvider>(context);
-    final transactionProvider = Provider.of<TransactionProvider>(context, listen: false); // Escuchamos al jefe de transacciones
-    final currentUser = userProvider.currentUser;
+    final currentUser = ref.watch(userProvider);
+    final txNotifier = ref.read(transactionProvider.notifier); // Escuchamos al jefe de transacciones
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -121,7 +129,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
-            .collection('presentation')
+            .collection('goals')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) return const Center(child: Text('Algo salió mal'));
@@ -157,7 +165,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                 current: (data['currentAmount'] ?? 0).toDouble(),
                 target: (data['targetAmount'] ?? 0).toDouble(),
                 color: const Color(0xFF2E7D32),
-                txProvider: transactionProvider, // Pasamos el provider a la tarjeta
+                txProvider: txNotifier, // Pasamos el provider a la tarjeta
               );
             },
           );
@@ -232,12 +240,14 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
     required Color color,
     required TransactionProvider txProvider, // Recibimos el provider
   }) {
-    double progress = (current / target).clamp(0.0, 1.0);
+    double progress =
+    target == 0 ? 0.0 : (current / target).clamp(0.0, 1.0);
+    /*double progress = (current / target).clamp(0.0, 1.0);*/
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.1))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withValues(alpha: 0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -275,7 +285,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                   onPressed: () => _showMoneyModal(uid, docId, title, false, txProvider), // Pasamos false para Gastar
                   icon: const Icon(Icons.shopping_bag_outlined, size: 18, color: Colors.orange),
                   label: const Text('Gastar', style: TextStyle(color: Colors.orange)),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.withOpacity(0.1), elevation: 0),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.withValues(alpha: 0.1), elevation: 0),
                 ),
               ),
             ],

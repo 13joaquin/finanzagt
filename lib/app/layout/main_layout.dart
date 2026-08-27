@@ -1,15 +1,16 @@
 // Archivo: lib/screens/main_layout.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import '../../screens/dashboard/dashboard_screen.dart';
-import '../../screens/budget_and_goals/budget_screen.dart';
-import '../../screens/education/education_screen.dart';
-import '../../screens/sanctuary/presentation/screens/sanctuary_screen.dart';
-import '../../screens/profile/presentation/profile_screen.dart';
-import '../../screens/transactions/presentation/screens/add_transaction_screen.dart';
+
 import '../../features/budgets/presentation/screens/add_debt_screen.dart';
-import '../../screens/sanctuary/presentation/screens/add_goal_screen.dart';
-import '../../screens/reports/reports_screen.dart'; // <--- IMPORTACIÓN DE INFORMES
+import '../../features/budgets/presentation/screens/budget_screen.dart';
+import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/education/presentation/screens/education_screen.dart';
+import '../../features/goals/presentation/savings_goals_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/reports/reports_screen.dart';
+import '../../features/sanctuary/presentation/screens/sanctuary_screen.dart';
+import '../../features/transactions/presentation/screens/add_transaction_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -25,8 +26,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   // Lista de pantallas actualizada con Informes en el índice 2
   final List<Widget> _screens = [
     const MainDashboardScreen(), // 0
+
     const BudgetScreen(),        // 1
-    const ReportsScreen(),       // 2 (NUEVA)
+    const ReportsScreen(),      // 2 (NUEVA)
     const SanctuaryScreen(),     // 3
   ];
 
@@ -50,7 +52,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.person_outline, color: primaryColor, size: 28),
@@ -126,13 +128,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           child: const Icon(Icons.receipt_long_outlined, color: Colors.white),
           backgroundColor: Colors.redAccent,
           label: 'Nuevo Gasto/Ingreso',
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddTransactionScreen())),
+          onTap: () =>  Navigator.push(context, MaterialPageRoute(builder: (context) => const AddTransactionScreen())),
         ),
         SpeedDialChild(
           child: const Icon(Icons.eco_outlined, color: Colors.white),
           backgroundColor: Colors.green,
           label: 'Nueva Meta Santuario',
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddGoalScreen())),
+          onTap: () =>  Navigator.push(context, MaterialPageRoute(builder: (context) => const /*AddGoalScreen()*/SavingsGoalsScreen())),
         ),
         SpeedDialChild(
           child: const Icon(Icons.money_off_csred_outlined, color: Colors.white),

@@ -1,21 +1,25 @@
 // Archivo: lib/screens/profile/profile_screen.dart
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../auth/presentation/providers/user_provider.dart';
-import '../../../budget_and_goals/presentation/savings_goals_screen.dart';
-import '../../../transactions/manage_categories_screen.dart';
-import 'package:finanzagt/screens/profile/presentation/profile_anon_screen.dart';
-import 'profile_registered_screen.dart';
-import 'package:finanzagt/screens/profile/components/feedback_bottom_sheet.dart';
 
-class ProfileScreen extends StatelessWidget {
+
+import 'package:finanzagt/features/profile/presentation/screens/profile_anon_screen.dart';
+import 'package:finanzagt/features/profile/presentation/screens/profile_registered_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../auth/presentation/providers/user_provider.dart';
+import '../../../goals/presentation/savings_goals_screen.dart';
+import '../../../transactions/presentation/screens/manage_categories_screen.dart';
+import '../components/feedback_bottom_sheet.dart';
+
+
+
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final user = userProvider.currentUser;
-    final bool isAnonymous = user?.isAnonymous ?? true;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+    final isAnonymous = user?.isAnonymous ?? true;
     const Color primaryColor = Color(0xFF4A47F6);
 
     return Scaffold(
@@ -85,11 +89,11 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const Divider(height: 1, indent: 55),
                   _buildMenuTile(
-                      context: context,
-                      icon: Icons.mail_outline,
-                      color: Colors.purple,
-                      title: "Soporte y Freedback",
-                      onTap: () => _showFeedbackBottomSheet(context),
+                    context: context,
+                    icon: Icons.mail_outline,
+                    color: Colors.purple,
+                    title: "Soporte y Feedback",
+                    onTap: () => _showFeedbackBottomSheet(context),
                   ),
                 ],
               ),
@@ -119,7 +123,7 @@ class ProfileScreen extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color, size: 22),

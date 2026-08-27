@@ -1,6 +1,7 @@
 // Archivo: lib/data/lesson_data.dart
 import 'package:flutter/material.dart';
-import 'package:finanzagt/features/education/data/models/lesson_model.dart'; // Ajusta la ruta si es necesario
+
+import 'models/lesson_model.dart';
 
 const List<LessonModel> appLessonsRoute = [
   // --- NIVEL 1: FUNDAMENTOS (Gratis) ---

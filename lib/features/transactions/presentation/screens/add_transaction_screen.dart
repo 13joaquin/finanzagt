@@ -2,22 +2,24 @@
 import 'package:flutter/material.dart';
 import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/transaction_model.dart';
 import '../../data/providers/transaction_provider.dart';
-import '../../models/transaction_model.dart';
 
-class AddTransactionScreen extends StatefulWidget {
+
+
+class AddTransactionScreen extends ConsumerStatefulWidget {
   final String? editDocId;
   final Map<String, dynamic>? editData;
 
   const AddTransactionScreen({super.key, this.editDocId, this.editData});
 
   @override
-  State<AddTransactionScreen> createState() => _AddTransactionScreenState();
+  ConsumerState<AddTransactionScreen> createState() => _AddTransactionScreenState();
 }
 
-class _AddTransactionScreenState extends State<AddTransactionScreen> {
+class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final CurrencyTextInputFormatter _amountFormatter = CurrencyTextInputFormatter.currency(symbol: '', decimalDigits: 2);
@@ -68,7 +70,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         isFixed: _isExpense ? _isFixedExpense : false, // Solo aplica si es gasto
       );
 
-      await Provider.of<TransactionProvider>(context, listen: false).addTransaction(newTransaction);
+      await ref.read(transactionProvider.notifier).addTransaction(newTransaction);
 
       if (mounted) Navigator.pop(context);
     } catch (e) {

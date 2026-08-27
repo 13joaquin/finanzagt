@@ -1,16 +1,18 @@
 // Archivo: lib/screens/profile/profile_registered_screen.dart
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../auth/presentation/providers/user_provider.dart';
-import '../../../auth/presentation/screens/welcome_screen.dart'; // <-- NUEVA IMPORTACIÓN PARA EL SPLASH BOOT
+import 'package:flutter/material.dart';import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ProfileRegisteredSection extends StatelessWidget {
+import '../../../auth/presentation/providers/user_provider.dart';
+import '../../../auth/presentation/screens/welcome_screen.dart';
+
+
+// <-- NUEVA IMPORTACIÓN PARA EL SPLASH BOOT
+
+class ProfileRegisteredSection extends ConsumerWidget {
   const ProfileRegisteredSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final user = userProvider.currentUser;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
     const Color primaryColor = Color(0xFF4A47F6);
 
     if (user == null) {
@@ -22,7 +24,7 @@ class ProfileRegisteredSection extends StatelessWidget {
         const SizedBox(height: 10),
         CircleAvatar(
           radius: 40,
-          backgroundColor: primaryColor.withOpacity(0.1),
+          backgroundColor: primaryColor.withValues(alpha: 0.1),
           child: Text(
             user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : "U",
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor),
@@ -69,7 +71,7 @@ class ProfileRegisteredSection extends StatelessWidget {
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -88,7 +90,7 @@ class ProfileRegisteredSection extends StatelessWidget {
           width: double.infinity,
           height: 48,
           child: OutlinedButton.icon(
-            onPressed: () => _showLogoutDialog(context, userProvider),
+            onPressed: () => _showLogoutDialog(context, ref),
             icon: const Icon(Icons.logout, color: Colors.redAccent, size: 18),
             label: const Text("Cerrar Sesión", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
             style: OutlinedButton.styleFrom(
@@ -101,7 +103,7 @@ class ProfileRegisteredSection extends StatelessWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, UserProvider provider) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -117,7 +119,7 @@ class ProfileRegisteredSection extends StatelessWidget {
             ),
             onPressed: () async {
               Navigator.pop(context); // Cierra el diálogo
-              await provider.signOut(); // Cierra la sesión en Firebase
+              await ref.read(userProvider.notifier).signOut(); // Cierra la sesión en Firebase
               // CAMBIO CRÍTICO: Redirección manual del Splash Boot
               if (context.mounted){
                 Navigator.pushAndRemoveUntil(

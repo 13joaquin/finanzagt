@@ -1,12 +1,14 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../goals/data/models/goal_model.dart';
+
+import '../models/goal_model.dart';
 
 class GoalRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // 1. CREAR UNA META NUEVA
   Future<void> createGoal(String uid, GoalModel goal) async {
-    await _firestore.collection('users').doc(uid).collection('presentation').add({
+    await _firestore.collection('users').doc(uid).collection('goals').add({
       'name': goal.name,
       'targetAmount': goal.targetAmount,
       'currentAmount': goal.currentAmount, // Inicia en 0
@@ -16,13 +18,13 @@ class GoalRepository {
 
   // 2. ACTUALIZAR NOMBRE O MONTO DE LA META
   Future<void> updateGoal(String uid, String docId, Map<String, dynamic> data) async {
-    await _firestore.collection('users').doc(uid).collection('presentation').doc(docId).update(data);
+    await _firestore.collection('users').doc(uid).collection('goals').doc(docId).update(data);
   }
 
   // 3. ELIMINAR META (Y devolver el dinero ahorrado al "Seguro para Gastar")
   Future<void> deleteGoal(String uid, String docId) async {
     final userRef = _firestore.collection('users').doc(uid);
-    final goalRef = userRef.collection('presentation').doc(docId);
+    final goalRef = userRef.collection('goals').doc(docId);
 
     // Usamos runTransaction para asegurar que no se pierda el dinero
     await _firestore.runTransaction((tx) async {
@@ -43,7 +45,7 @@ class GoalRepository {
   // 4. ABONAR DINERO A LA META
   Future<void> addFundsToGoal(String uid, String docId, double amount) async {
     final userRef = _firestore.collection('users').doc(uid);
-    final goalRef = userRef.collection('presentation').doc(docId);
+    final goalRef = userRef.collection('goals').doc(docId);
 
     await _firestore.runTransaction((tx) async {
       final userSnap = await tx.get(userRef);
@@ -63,7 +65,7 @@ class GoalRepository {
   // 5. GASTAR DINERO DE LA META
   Future<void> spendFundsFromGoal(String uid, String docId, double amount) async {
     final userRef = _firestore.collection('users').doc(uid);
-    final goalRef = userRef.collection('presentation').doc(docId);
+    final goalRef = userRef.collection('goals').doc(docId);
 
     await _firestore.runTransaction((tx) async {
       final userSnap = await tx.get(userRef);

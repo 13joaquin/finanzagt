@@ -1,34 +1,71 @@
 // Archivo: lib/providers/lesson_provider.dart
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class LessonProvider extends ChangeNotifier {
+final lessonProvider = NotifierProvider<LessonProvider, LessonState>(
+  LessonProvider.new,
+);
+
+// --- Estado inmutable de la Lección/Progreso Educativo ---
+// Agrupa lo que antes eran campos privados del ChangeNotifier, siguiendo
+// el mismo patrón ya usado por BudgetState en budget_provider.dart.
+class LessonState {
+  final int lives;
+  final double progress;
+  final bool isLessonCompleted;
+  final bool isGameOver;
+  final List<String> completedLessons;
+
+  const LessonState({
+    this.lives = 3,
+    this.progress = 0.0,
+    this.isLessonCompleted = false,
+    this.isGameOver = false,
+    this.completedLessons = const [],
+  });
+
+  LessonState copyWith({
+    int? lives,
+    double? progress,
+    bool? isLessonCompleted,
+    bool? isGameOver,
+    List<String>? completedLessons,
+  }) {
+    return LessonState(
+      lives: lives ?? this.lives,
+      progress: progress ?? this.progress,
+      isLessonCompleted: isLessonCompleted ?? this.isLessonCompleted,
+      isGameOver: isGameOver ?? this.isGameOver,
+      completedLessons: completedLessons ?? this.completedLessons,
+    );
+  }
+}
+
+class LessonProvider extends Notifier<LessonState> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String? _userId;
 
-  // --- Estado de la Lección Actual ---
-  int _lives = 3;
-  double _progress = 0.0;
-  bool _isLessonCompleted = false;
-  bool _isGameOver = false;
+  // Getters (mismo contrato público que el ChangeNotifier original)
+  int get lives => state.lives;
+  double get progress => state.progress;
+  bool get isLessonCompleted => state.isLessonCompleted;
+  bool get isGameOver => state.isGameOver;
+  List<String> get completedLessons => state.completedLessons;
 
-  // --- Progreso Global (Sincronizado con Firestore) ---
-  List<String> _completedLessons = [];
+  @override
+  LessonState build() {
+    return const LessonState();
+  }
 
-  // Getters
-  int get lives => _lives;
-  double get progress => _progress;
-  bool get isLessonCompleted => _isLessonCompleted;
-  bool get isGameOver => _isGameOver;
-  List<String> get completedLessons => _completedLessons;
-
-  /// Método inicializador. Llama a esto desde tu main.dart o en el ProxyProvider
-  /// para que el proveedor sepa de qué usuario buscar el progreso.
+  /// Método inicializador. Debe llamarse cuando se conoce el UID del usuario
+  /// (por ejemplo desde la pantalla de Educación o desde el Bootstrap),
+  /// para que el provider sepa de qué usuario buscar el progreso.
   Future<void> initializeUser(String? uid) async {
     if (uid == null || uid == _userId) return; // Evitar recargas innecesarias
 
     _userId = uid;
-    _completedLessons = [];
+    state = state.copyWith(completedLessons: []);
 
     try {
       // Leemos la subcolección de progreso del usuario
@@ -38,25 +75,36 @@ class LessonProvider extends ChangeNotifier {
           .collection('education_progress')
           .get();
 
-      // Guardamos en la memoria local los IDs de las lecciones completadas
-      _completedLessons = snapshot.docs.map((doc) => doc.id).toList();
-      notifyListeners();
+      // Guardamos en el estado los IDs de las lecciones completadas
+      state = state.copyWith(
+        completedLessons: snapshot.docs.map((doc) => doc.id).toList(),
+      );
     } catch (e) {
       debugPrint("Error cargando el progreso educativo desde Firestore: $e");
     }
   }
-
+  void resetUser(){
+    _userId = null;
+    state = state.copyWith(
+      completedLessons: [],
+      lives: 3,
+      progress: 0.0,
+      isLessonCompleted: false,
+      isGameOver: false,
+    );
+  }
   // Verifica si una lección específica ya fue completada
   bool isLessonDone(String lessonId) {
-    return _completedLessons.contains(lessonId);
+    return state.completedLessons.contains(lessonId);
   }
 
   // Marca una lección como completada y la guarda en la nube
   Future<void> markLessonAsCompleted(String lessonId) async {
-    if (!_completedLessons.contains(lessonId)) {
+    if (!state.completedLessons.contains(lessonId)) {
       // 1. Actualización optimista en la UI (se refleja de inmediato sin esperar la red)
-      _completedLessons.add(lessonId);
-      notifyListeners();
+      state = state.copyWith(
+        completedLessons: [...state.completedLessons, lessonId],
+      );
 
       // 2. Guardado persistente en Firestore
       if (_userId != null) {
@@ -80,7 +128,7 @@ class LessonProvider extends ChangeNotifier {
 
   // Lógica de validación de respuestas
   bool submitAnswer(bool isCorrect, int totalSteps, int currentStep) {
-    if (isGameOver || _isLessonCompleted) return false;
+    if (state.isGameOver || state.isLessonCompleted) return false;
 
     if (isCorrect) {
       _advanceProgress(totalSteps, currentStep);
@@ -92,28 +140,29 @@ class LessonProvider extends ChangeNotifier {
   }
 
   void _loseLife() {
-    if (_lives > 0) {
-      _lives--;
-      if (_lives == 0) {
-        _isGameOver = true;
-      }
-      notifyListeners();
+    if (state.lives > 0) {
+      final newLives = state.lives - 1;
+      state = state.copyWith(
+        lives: newLives,
+        isGameOver: newLives == 0,
+      );
     }
   }
 
   void _advanceProgress(int totalSteps, int currentStep) {
-    _progress = (currentStep + 1) / totalSteps;
-    if (_progress >= 1.0) {
-      _isLessonCompleted = true;
-    }
-    notifyListeners();
+    final newProgress = (currentStep + 1) / totalSteps;
+    state = state.copyWith(
+      progress: newProgress,
+      isLessonCompleted: newProgress >= 1.0,
+    );
   }
 
   void resetLesson() {
-    _lives = 3;
-    _progress = 0.0;
-    _isLessonCompleted = false;
-    _isGameOver = false;
-    notifyListeners();
+    state = state.copyWith(
+      lives: 3,
+      progress: 0.0,
+      isLessonCompleted: false,
+      isGameOver: false,
+    );
   }
 }

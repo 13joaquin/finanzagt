@@ -1,38 +1,64 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../../screens/goals/data/providers/debt_provider.dart';
-import '../../../../screens/goals/data/models/debt_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DebtsScreen extends StatelessWidget {
+import '../../../goals/data/models/debt_model.dart';
+import '../../../goals/data/providers/debt_provider.dart';
+
+
+class DebtsScreen extends ConsumerWidget {
   const DebtsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final debtProvider = Provider.of<DebtProvider>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final debts = ref.watch(debtProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Mis Deudas (Piedras)")),
-      body: debtProvider.debts.isEmpty
-          ? const Center(child: Text("¡No tienes deudas! Tu Santuario está ligero."))
+      appBar: AppBar(
+        title: const Text('Mis Deudas (Piedras)'),
+      ),
+      body: debts.isEmpty
+          ? const Center(
+        child: Text(
+          '¡No tienes deudas! Tu Santuario está ligero.',
+        ),
+      )
           : ListView.builder(
-        itemCount: debtProvider.debts.length,
+        itemCount: debts.length,
         itemBuilder: (context, index) {
-          final debt = debtProvider.debts[index];
+          final debt = debts[index];
+
           return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            margin: const EdgeInsets.symmetric(
+              horizontal: 15,
+              vertical: 8,
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(debt.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      Text("Q${debt.remainingAmount.toStringAsFixed(2)}", style: const TextStyle(color: Colors.red)),
+                      Expanded(
+                        child: Text(
+                          debt.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Q${debt.remainingAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Colors.red,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // Barra de progreso usando el modelo
                   LinearProgressIndicator(
                     value: debt.paymentProgress,
                     backgroundColor: Colors.grey[200],
@@ -40,9 +66,13 @@ class DebtsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   ElevatedButton(
-                    onPressed: () => _showPaymentDialog(context, debt, debtProvider),
-                    child: const Text("Abonar Cuota"),
-                  )
+                    onPressed: () => _showPaymentDialog(
+                      context,
+                      debt,
+                      ref,
+                    ),
+                    child: const Text('Abonar Cuota'),
+                  ),
                 ],
               ),
             ),
@@ -50,61 +80,136 @@ class DebtsScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddDebtDialog(context, debtProvider),
+        onPressed: () => _showAddDebtDialog(context, ref),
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  // --- Lógica de los Diálogos ---
-  void _showAddDebtDialog(BuildContext context, DebtProvider provider) {
+  void _showAddDebtDialog(
+      BuildContext context,
+      WidgetRef ref,
+      ) {
     final nameController = TextEditingController();
     final amountController = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Nueva Deuda"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameController, decoration: const InputDecoration(labelText: "Nombre o Banco")),
-            TextField(controller: amountController, decoration: const InputDecoration(labelText: "Monto Total"), keyboardType: TextInputType.number),
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Nueva Deuda'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre o Banco',
+                ),
+              ),
+              TextField(
+                controller: amountController,
+                decoration: const InputDecoration(
+                  labelText: 'Monto Total',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final amount = double.tryParse(
+                  amountController.text.trim(),
+                );
+
+                if (name.isEmpty ||
+                    amount == null ||
+                    amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Ingresa un nombre y un monto válido.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                ref.read(debtProvider.notifier).addDebt(
+                  name: name,
+                  totalAmount: amount,
+                );
+
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Guardar'),
+            ),
           ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () {
-              provider.addDebt(name: nameController.text, totalAmount: double.parse(amountController.text));
-              Navigator.pop(context);
-            },
-            child: const Text("Guardar"),
-          )
-        ],
-      ),
+        );
+      },
     );
   }
 
-  void _showPaymentDialog(BuildContext context, DebtModel debt, DebtProvider provider) {
+  void _showPaymentDialog(
+      BuildContext context,
+      DebtModel debt,
+      WidgetRef ref,
+      ) {
     final amountController = TextEditingController();
-    showDialog(
+
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Abonar a ${debt.name}"),
-        content: TextField(controller: amountController, decoration: const InputDecoration(labelText: "Monto del abono"), keyboardType: TextInputType.number),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () {
-              // AQUÍ ESTÁ LA SOLUCIÓN: Agregamos debt.name como tercer argumento
-              provider.payDebt(debt.id, double.parse(amountController.text), debt.name);
-              Navigator.pop(context);
-            },
-            child: const Text("Confirmar Pago"),
-          )
-        ],
-      ),
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Abonar a ${debt.name}'),
+          content: TextField(
+            controller: amountController,
+            decoration: const InputDecoration(
+              labelText: 'Monto del abono',
+            ),
+            keyboardType: TextInputType.number,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(
+                  amountController.text.trim(),
+                );
+
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Ingresa un monto de abono válido.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                ref.read(debtProvider.notifier).payDebt(
+                  debt.id,
+                  amount,
+                  debt.name,
+                );
+
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Confirmar Pago'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

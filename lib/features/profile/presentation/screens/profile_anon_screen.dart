@@ -1,6 +1,9 @@
 // Archivo: lib/screens/profile/profile_anon_screen.dart
 import 'package:flutter/material.dart';
-import 'package:finanzagt/features/auth/presentation/screens/auth_screen.dart';
+
+import '../../../auth/presentation/screens/auth_screen.dart';
+
+
 
 class ProfileAnonSection extends StatelessWidget {
   const ProfileAnonSection({super.key});
@@ -19,12 +22,20 @@ class ProfileAnonSection extends StatelessWidget {
             color: Colors.grey[200],
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.account_circle_outlined, size: 75, color: Colors.grey[600]),
+          child: Icon(
+            Icons.account_circle_outlined,
+            size: 75,
+            color: Colors.grey[600],
+          ),
         ),
         const SizedBox(height: 15),
         const Text(
           "Modo Invitado",
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -55,14 +66,27 @@ class ProfileAnonSection extends StatelessWidget {
                   SizedBox(width: 8),
                   Text(
                     "¡Sincroniza tu dinero!",
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 15),
-              _buildBenefitRow(Icons.cloud_upload_outlined, "Respaldo automático en la nube."),
-              _buildBenefitRow(Icons.devices_outlined, "Acceso multi-dispositivo en tiempo real."),
-              _buildBenefitRow(Icons.analytics_outlined, "Informes avanzados desbloqueados."),
+              _buildBenefitRow(
+                Icons.cloud_upload_outlined,
+                "Respaldo automático en la nube.",
+              ),
+              _buildBenefitRow(
+                Icons.devices_outlined,
+                "Acceso multi-dispositivo en tiempo real.",
+              ),
+              _buildBenefitRow(
+                Icons.analytics_outlined,
+                "Informes avanzados desbloqueados.",
+              ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -71,13 +95,17 @@ class ProfileAnonSection extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const AuthScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const AuthScreen(),
+                      ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
                   child: const Text(

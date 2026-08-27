@@ -1,20 +1,32 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/debt_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/debt_model.dart';
 
-class DebtProvider extends ChangeNotifier {
-  List<DebtModel> _debts = [];
-  List<DebtModel> get debts => _debts;
+final debtProvider = NotifierProvider<DebtProvider, List<DebtModel>>(
+  DebtProvider.new,
+);
+
+class DebtProvider extends Notifier<List<DebtModel>> {
+  List<DebtModel> get debts => state;
 
   String? _userId;
   StreamSubscription? _debtSubscription;
 
   // --- Getters para Dashboard y BudgetScreen[cite: 1, 4] ---
-  double get totalDebtAmount => _debts.fold(0, (sum, item) => sum + item.totalAmount);
-  double get totalRemainingAmount => _debts.fold(0.0, (sum, item) => sum + item.remainingAmount);
+  double get totalDebtAmount => state.fold(0, (sum, item) => sum + item.totalAmount);
+  double get totalRemainingAmount => state.fold(0.0, (sum, item) => sum + item.remainingAmount);
   double get totalPaidAmount => totalDebtAmount - totalRemainingAmount;
-  double get totalInitialDebt => _debts.fold(0.0, (sum, item) => sum + item.totalAmount);
+  double get totalInitialDebt => state.fold(0.0, (sum, item) => sum + item.totalAmount);
+
+  @override
+  List<DebtModel> build() {
+    ref.onDispose(() {
+      _debtSubscription?.cancel();
+    });
+
+    return [];
+  }
 
   // --- Motor de Sincronización Blindado ---
   void updateUser(String? uid) {
@@ -29,12 +41,10 @@ class DebtProvider extends ChangeNotifier {
           .collection('debts')
           .snapshots()
           .listen((snapshot) {
-        _debts = snapshot.docs.map((doc) => DebtModel.fromMap(doc.id, doc.data())).toList();
-        notifyListeners();
+        state = snapshot.docs.map((doc) => DebtModel.fromMap(doc.id, doc.data())).toList();
       });
     } else {
-      _debts = [];
-      notifyListeners();
+      state = [];
     }
   }
 
@@ -85,11 +95,5 @@ class DebtProvider extends ChangeNotifier {
     });
 
     await batch.commit();
-  }
-
-  @override
-  void dispose() {
-    _debtSubscription?.cancel();
-    super.dispose();
   }
 }

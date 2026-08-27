@@ -1,17 +1,21 @@
 // Archivo: lib/screens/profile/components/feedback_bottom_sheet.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../features/auth/presentation/providers/user_provider.dart';
 
-class FeedbackBottomSheet extends StatefulWidget {
+import '../../../auth/presentation/providers/user_provider.dart';
+
+
+
+class FeedbackBottomSheet extends ConsumerStatefulWidget {
   const FeedbackBottomSheet({super.key});
 
   @override
-  State<FeedbackBottomSheet> createState() => _FeedbackBottomSheetState();
+  ConsumerState<FeedbackBottomSheet> createState() =>
+      _FeedbackBottomSheetState();
 }
 
-class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
+class _FeedbackBottomSheetState extends ConsumerState<FeedbackBottomSheet> {
   final TextEditingController _feedbackController = TextEditingController();
   bool _isSending = false;
   String _selectedType = 'Sugerencia';
@@ -36,8 +40,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
     setState(() => _isSending = true);
 
     try {
-      final userProvider = context.read<UserProvider>();
-      final user = userProvider.currentUser;
+      final user = ref.read(userProvider);
 
       // Guardamos directamente en la colección de soporte de Firestore
       await FirebaseFirestore.instance.collection('feedback').add({
@@ -59,9 +62,9 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al enviar: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error al enviar: $e")));
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -74,7 +77,9 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom, // Evita que el teclado tape el modal
+        bottom: MediaQuery.of(
+          context,
+        ).viewInsets.bottom, // Evita que el teclado tape el modal
       ),
       child: Container(
         decoration: const BoxDecoration(
@@ -90,7 +95,10 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
               child: Container(
                 width: 50,
                 height: 5,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -114,10 +122,12 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
                   child: ChoiceChip(
                     label: Text(type),
                     selected: isSelected,
-                    selectedColor: primaryColor.withOpacity(0.1),
+                    selectedColor: primaryColor.withValues(alpha: 0.1),
                     labelStyle: TextStyle(
                       color: isSelected ? primaryColor : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                     onSelected: (bool selected) {
                       if (selected) setState(() => _selectedType = type);
@@ -134,7 +144,9 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
               maxLines: 4,
               decoration: InputDecoration(
                 hintText: "Escribe los detalles aquí...",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
                   borderSide: const BorderSide(color: primaryColor, width: 2),
@@ -151,13 +163,19 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
                 onPressed: _isSending ? null : _sendFeedback,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
                 child: _isSending
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                   "Enviar Mensaje",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),

@@ -12,6 +12,12 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
 
+  @override
+  void dispose(){
+    _emailController.dispose();
+    super.dispose();
+  }
+
   Future<void> _resetPassword() async {
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: _emailController.text.trim());
@@ -20,6 +26,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }

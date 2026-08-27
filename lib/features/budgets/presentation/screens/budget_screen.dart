@@ -1,18 +1,21 @@
 // lib/screens/presentation/budget_screen.dart
-import 'package:finanzagt/features/budgets/presentation/screens/debts_screen.dart';
-import 'package:finanzagt/features/budgets/presentation/screens/fixed_expenses_screen.dart';
-import 'package:finanzagt/features/budgets/presentation/screens/flexible_expenses_screen.dart';
-import 'package:finanzagt/screens/budget_and_goals/presentation/savings_goals_screen.dart';
+
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../screens/transactions/data/providers/transaction_provider.dart';
-import '../../../../screens/goals/data/providers/GoalProvider.dart';
-import '../../../../screens/goals/data/providers/debt_provider.dart';
-import '../../../../widgets/budget_card.dart';
+import '../../../goals/data/providers/GoalProvider.dart';
+import '../../../goals/data/providers/debt_provider.dart';
+import '../../../goals/presentation/savings_goals_screen.dart';
+import '../../../transactions/data/providers/transaction_provider.dart';
+import '../widgets/budget_card.dart';
+import 'debts_screen.dart';
+import 'fixed_expenses_screen.dart';
+import 'flexible_expenses_screen.dart';
 
-class BudgetScreen extends StatelessWidget {
+
+class BudgetScreen extends ConsumerWidget {
   const BudgetScreen({super.key});
 
   // MÉTODO PARA MOSTRAR EL SELECTOR DE DETALLES
@@ -39,7 +42,7 @@ class BudgetScreen extends StatelessWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.lock_outline, color: Colors.orange),
@@ -58,7 +61,7 @@ class BudgetScreen extends StatelessWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.shopping_bag_outlined, color: Colors.orange),
@@ -80,36 +83,41 @@ class BudgetScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final format = NumberFormat.simpleCurrency(decimalDigits: 2, name: 'Q');
 
-    final txProvider = Provider.of<TransactionProvider>(context);
-    final goalProvider = Provider.of<GoalProvider>(context);
-    final debtProvider = Provider.of<DebtProvider>(context);
+    final transactions = ref.watch(transactionProvider);
+    final txNotifier = ref.read(transactionProvider.notifier);
+
+    ref.watch(goalProvider);
+    final goalNotifier = ref.read(goalProvider.notifier);
+
+    ref.watch(debtProvider);
+    final debtNotifier = ref.read(debtProvider.notifier);
 
     // LÓGICA DE FUSIÓN DE DATOS
-    double ingresos = txProvider.totalIncomes;
+    final ingresos = txNotifier.totalIncomes;
 
     // Filtramos los gastos para la Cubeta de Supervivencia
-    final double gastosFijos = txProvider.transactions
+    final double gastosFijos = transactions
         .where((t) => t.type == 'expense' && t.isFixed == true)
         .fold(0.0, (sum, item) => sum + item.amount);
 
-    final double gastosFlexibles = txProvider.transactions
+    final double gastosFlexibles = transactions
         .where((t) => t.type == 'expense' && t.isFixed == false)
         .fold(0.0, (sum, item) => sum + item.amount);
 
-    double totalSupervivencia = gastosFijos + gastosFlexibles;
+    final /*double*/ totalSupervivencia = gastosFijos + gastosFlexibles;
 
     // Definimos un presupuesto ideal (ejemplo: 50% de ingresos)
-    double metaSupervivencia = ingresos > 0 ? ingresos * 0.5 : 1000.0;
+    final /*double*/ metaSupervivencia = ingresos > 0 ? ingresos * 0.5 : 1000.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _buildHeader(ingresos, txProvider.totalExpenses, format),
+            child: _buildHeader(ingresos, txNotifier.totalExpenses, format),
           ),
           SliverPadding(
             padding: const EdgeInsets.all(20),
@@ -136,12 +144,12 @@ class BudgetScreen extends StatelessWidget {
                 BudgetCard(
                   title: "El Santuario",
                   subtitle: "Tus Metas de Ahorro",
-                  spent: goalProvider.totalSaved,
-                  total: goalProvider.totalTarget > 0 ? goalProvider.totalTarget : 1.0,
+                  spent: goalNotifier.totalSaved,
+                  total: goalNotifier.totalTarget > 0 ? goalNotifier.totalTarget : 1.0,
                   icon: Icons.eco_outlined,
                   color: Colors.green,
                   actionLabel: "Ir al Santuario",
-                  onTap: () {
+                  onTap: ()  {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const SavingsGoalsScreen()));
                   },
                 ),
@@ -151,8 +159,8 @@ class BudgetScreen extends StatelessWidget {
                 BudgetCard(
                   title: "Deudas",
                   subtitle: "Pendiente por pagar",
-                  spent: debtProvider.totalPaidAmount,
-                  total: debtProvider.totalInitialDebt > 0 ? debtProvider.totalInitialDebt : 1.0,
+                  spent: debtNotifier.totalPaidAmount,
+                  total: debtNotifier.totalInitialDebt > 0 ? debtNotifier.totalInitialDebt : 1.0,
                   icon: Icons.money_off_csred_outlined,
                   color: Colors.redAccent,
                   actionLabel: "Gestionar Deudas",

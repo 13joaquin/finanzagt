@@ -1,17 +1,16 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../screens/transactions/data/providers/transaction_provider.dart';
-import '../screens/transactions/models/transaction_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ExpensePieChart extends StatelessWidget {
+import '../../../transactions/data/providers/transaction_provider.dart';
+
+class ExpensePieChart extends ConsumerWidget {
   const ExpensePieChart({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // 1. Escuchamos al "Jefe Único" (TransactionProvider)
-    final txProvider = Provider.of<TransactionProvider>(context);
-    final transactions = txProvider.transactions;
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 1. Escuchamos al "Jefe Único" (TransactionProvider) vía Riverpod
+    final transactions = ref.watch(transactionProvider);
 
     // 2. Filtramos solo los gastos para la gráfica
     final expenses = transactions.where((t) => t.type == 'expense').toList();

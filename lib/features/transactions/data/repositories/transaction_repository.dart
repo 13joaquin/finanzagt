@@ -1,6 +1,7 @@
 // Archivo: lib/data/repositories/transaction_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/transaction_model.dart';
+
+import '../models/transaction_model.dart';
 
 class TransactionRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -32,7 +33,7 @@ class TransactionRepository {
     // B. La Magia del Ahorro Real
     // Si es un ahorro y sabemos a qué meta va dirigida, movemos el dinero.
     if (transaction.type == 'saving' && goalId != null && goalId.isNotEmpty) {
-      final goalRef = _db.collection('users').doc(uid).collection('presentation').doc(goalId);
+      final goalRef = _db.collection('users').doc(uid).collection('goals').doc(goalId);
 
       // FieldValue.increment le dice a Firebase:
       // "Súmale este nuevo monto a lo que ya estaba ahorrado en la maceta"

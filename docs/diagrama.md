@@ -38,7 +38,10 @@ Finanzas_GT/ <---- Proyecto Original
 │    │       │                    └── welcome_screen.dart <------- Migrado
 │    │       ├── budgets/
 │    │       │     ├── data/
-│    │       │     │     └── repositories/
+│    │       │     │     ├── repositories/
+│    │       │     │     │        └── budget_repository.dart <------- Migrado
+│    │       │     │     └──providers/
+│    │       │     │            └── budget_provider.dart <------- Migrado
 │    │       │     └── presentation/
 │    │       │             ├── screens/
 │    │       │             │     ├── add_debt_screen.dart <------- Migrado

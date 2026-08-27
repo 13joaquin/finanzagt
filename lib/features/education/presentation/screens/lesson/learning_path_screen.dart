@@ -1,23 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:finanzagt/features/education/data/models/lesson_model.dart';
-// ¡SOLUCIÓN! Agregamos la ruta de los datos para que encuentre appLessonsRoute
-import 'package:finanzagt/features/education/data/lesson_data.dart';
-import 'package:finanzagt/screens/education/lesson/emergency_fund_edu_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class LearningPathScreen extends StatelessWidget {
-  // Simulamos los datos que vendrían del estado (ej. Riverpod o Provider)
-  final List<String> completedLessons = const ['lesson_01']; // Lecciones ya terminadas
-  final String currentLessonId = 'lesson_02'; // La lección activa
-  final bool isUserPro = false; // Estado de suscripción
+import '../../../../auth/presentation/providers/user_provider.dart';
+import '../../../data/lesson_data.dart';
+import '../../../data/models/lesson_model.dart';
+import '../../../data/providers/lesson_provider.dart';
+import 'emergency_fund_edu_screen.dart';
 
+class LearningPathScreen extends ConsumerWidget {
   const LearningPathScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Estado real de las lecciones (reemplaza al estado simulado)
+    final lessonState = ref.watch(lessonProvider);
+
+    // Estado real del usuario (reemplaza a isUserPro = false)
+    final user = ref.watch(userProvider);
+    final isUserPro = user?.isPro ?? false;
+
+    // La lección actual es la primera de la ruta que todavía no está completada.
+    // Se deriva aquí, sin agregar estado nuevo a LessonProvider.
+    final currentLessonIndex = appLessonsRoute.indexWhere(
+          (lesson) => !lessonState.completedLessons.contains(lesson.id),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA), // Fondo neutro claro
       appBar: AppBar(
-        title: const Text('Ruta Finavid', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        title: const Text(
+          'Ruta Finavid',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -28,9 +42,10 @@ class LearningPathScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final lesson = appLessonsRoute[index];
 
-          // Lógica de estado de la lección
-          final isCompleted = completedLessons.contains(lesson.id);
-          final isCurrent = lesson.id == currentLessonId;
+          // Lógica de estado de la lección (derivada del estado real)
+          final isCompleted = lessonState.completedLessons.contains(lesson.id);
+          final isCurrent =
+              currentLessonIndex != -1 && index == currentLessonIndex;
           final isLocked = !isCompleted && !isCurrent;
           final requiresProUpgrade = lesson.isPremium && !isUserPro;
 
@@ -88,10 +103,12 @@ class LearningPathScreen extends StatelessWidget {
               }
 
               // Navegación a la lección activa
-              if (lesson.id == 'lesson_01') {
+              if (lesson.id == 'lesson_03') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const EmergencyFundEduScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const EmergencyFundEduScreen(),
+                  ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -111,7 +128,7 @@ class LearningPathScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: nodeColor.withOpacity(0.4),
+                        color: nodeColor.withValues(alpha: 0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -122,8 +139,18 @@ class LearningPathScreen extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    requiresProUpgrade ? Icons.workspace_premium_rounded : (isLocked ? Icons.lock_rounded : lesson.icon),
-                    color: isLocked && !requiresProUpgrade ? Colors.black38 : Colors.white,
+                    isCompleted
+                        ? Icons.check_circle_rounded
+                        : requiresProUpgrade
+                        ? Icons.workspace_premium_rounded
+                        : isLocked
+                        ? Icons.lock_rounded
+                        : lesson.icon,
+                    color: isCompleted
+                        ? Colors.white
+                        : isLocked && !requiresProUpgrade
+                        ? Colors.black38
+                        : Colors.white,
                     size: 35,
                   ),
                 ),
@@ -132,14 +159,24 @@ class LearningPathScreen extends StatelessWidget {
                   Positioned(
                     top: -15,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.orangeAccent,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('¡AQUÍ!', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                      child: const Text(
+                        '¡AQUÍ!',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  )
+                  ),
               ],
             ),
           ),
@@ -166,12 +203,13 @@ class LearningPathScreen extends StatelessWidget {
             width: 4,
             height: 40,
             decoration: BoxDecoration(
-              color: isCompleted ? const Color(0xFF4CAF50) : const Color(0xFFE0E0E0),
+              color: isCompleted
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFFE0E0E0),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-        if (!isLast)
-          const SizedBox(height: 20),
+        if (!isLast) const SizedBox(height: 20),
       ],
     );
   }
@@ -179,7 +217,9 @@ class LearningPathScreen extends StatelessWidget {
   void _showLockedSnack(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Termina las lecciones anteriores para desbloquear esta.'),
+        content: Text(
+          'Termina las lecciones anteriores para desbloquear esta.',
+        ),
         backgroundColor: Colors.black87,
         duration: Duration(seconds: 2),
       ),
@@ -191,7 +231,9 @@ class LearningPathScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('🌟 Nivel PRO requerido'),
-        content: const Text('Esta lección avanzada sobre Inflación de Estilo está reservada para usuarios PRO. ¿Deseas potenciar tu cuenta?'),
+        content: const Text(
+          'Esta lección avanzada sobre Inflación de Estilo está reservada para usuarios PRO. ¿Deseas potenciar tu cuenta?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

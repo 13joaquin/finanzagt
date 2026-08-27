@@ -1,50 +1,63 @@
-// Archivo: lib/providers/transaction_provider.dart
-import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/transaction_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TransactionProvider extends ChangeNotifier {
-  List<TransactionModel> _transactions = [];
+import '../models/transaction_model.dart';
+
+final transactionProvider = NotifierProvider<TransactionProvider,
+    List<TransactionModel>>(
+  TransactionProvider.new,
+);
+
+class TransactionProvider extends Notifier<List<TransactionModel>> {
   String? _userId;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _transactionsSubscription;
 
-  List<TransactionModel> get transactions => _transactions;
+  List<TransactionModel> get transactions => state;
 
-  double get totalIncomes => _transactions
+  double get totalIncomes => state
       .where((t) => t.type == 'income')
       .fold(0.0, (sum, item) => sum + item.amount);
 
-  double get totalExpenses => _transactions
+  double get totalExpenses => state
       .where((t) => t.type == 'expense')
       .fold(0.0, (sum, item) => sum + item.amount);
 
-  double get totalSavings => _transactions
+  double get totalSavings => state
       .where((t) => t.type == 'saving')
       .fold(0.0, (sum, item) => sum + item.amount);
 
   double get netWorth => totalIncomes - totalExpenses;
 
-  // --- COMUNICACIÓN CON FIREBASE ---
+  @override
+  List<TransactionModel> build() {
+    ref.onDispose(() {
+      _transactionsSubscription?.cancel();
+    });
+
+    return [];
+  }
+
   void listenToTransactions(String uid) {
     _userId = uid;
-    FirebaseFirestore.instance
+    _transactionsSubscription?.cancel();
+    _transactionsSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('transactions')
         .orderBy('date', descending: true)
         .snapshots()
         .listen((snapshot) {
-      _transactions = snapshot.docs
-          .map((doc) => TransactionModel.fromFirestore(doc)) // <-- CORREGIDO
+      state = snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
           .toList();
-
-      notifyListeners();
     }, onError: (error) {
-      // Agregamos un print para evitar que fallos futuros pasen en silencio
-      print("Error en el stream de transacciones: $error");
+      print('Error en el stream de transacciones: $error');
     });
   }
 
-  // --- ACCIONES ---
   Future<void> addTransaction(TransactionModel transaction) async {
     if (_userId == null) return;
 
@@ -52,7 +65,7 @@ class TransactionProvider extends ChangeNotifier {
         .collection('users')
         .doc(_userId)
         .collection('transactions')
-        .add(transaction.toFirestore()); // <-- CORREGIDO
+        .add(transaction.toFirestore());
   }
 
   Future<void> deleteTransaction(String transactionId) async {

@@ -1,11 +1,11 @@
 // Archivo: lib/screens/auth/auth_screen.dart
-import 'package:finanzagt/app/layout/main_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Añadido para verificar el perfil
-import 'forgot_password_screen.dart';
-import 'welcome_screen.dart';
-import 'setup_profile_screen.dart'; // Añadido para la redirección manual segura
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../../../app/layout/main_layout.dart';
+import 'setup_profile_screen.dart';
+
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -20,6 +20,12 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
+  @override
+  void dispose(){
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submitAuth() async {
     final email = _emailController.text.trim();

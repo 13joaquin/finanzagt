@@ -1,18 +1,19 @@
 // Archivo: lib/screens/transactions/manage_categories_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
-import '../../../../features/auth/presentation/providers/user_provider.dart';
-import '../../../../features/auth/presentation/screens/auth_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ManageCategoriesScreen extends StatefulWidget {
+import '../../../auth/presentation/providers/user_provider.dart';
+import '../../../auth/presentation/screens/auth_screen.dart';
+
+class ManageCategoriesScreen extends ConsumerStatefulWidget {
   const ManageCategoriesScreen({super.key});
 
   @override
-  State<ManageCategoriesScreen> createState() => _ManageCategoriesScreenState();
+  ConsumerState<ManageCategoriesScreen> createState() => _ManageCategoriesScreenState();
 }
 
-class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
+class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen> {
   final TextEditingController _categoryController = TextEditingController();
   bool _isExpenseTab = true;
 
@@ -75,13 +76,17 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
       ),
     );
   }
-
+  @override
+  void dispose() {
+    _categoryController.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     // Obtenemos el proveedor y el estado Pro
-    final userProvider = Provider.of<UserProvider>(context);
-    final uid = userProvider.currentUser?.uid;
-    final bool isPro = userProvider.isPro; // <-- ✨ LECTURA DEL ESTADO PRO
+    final userProviderNotifier = ref.watch(userProvider);
+    final uid = userProviderNotifier?.uid;
+    final bool isPro = userProviderNotifier?.isPro ?? false; // <-- ✨ LECTURA DEL ESTADO PRO
 
     if (uid == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -173,7 +178,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                         margin: const EdgeInsets.only(bottom: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+                          side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
                         ),
                         child: ListTile(
                           title: Text(categories[index], style: TextStyle(
@@ -210,7 +215,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         decoration: BoxDecoration(
           color: active ? const Color(0xFF4A47F6) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: active ? null : Border.all(color: Colors.grey.withOpacity(0.2)),
+          border: active ? null : Border.all(color: Colors.grey.withValues(alpha: 0.2)),
         ),
         child: Center(
           child: Text(

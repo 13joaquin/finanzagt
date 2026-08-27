@@ -1,28 +1,59 @@
 // Archivo: lib/providers/sanctuary_provider.dart
-import 'package:flutter/material.dart';
-import '../../../goals/data/models/goal_model.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../goals/data/models/debt_model.dart';
+import '../../../goals/data/models/goal_model.dart';
 
 enum TreeStage { seed, sprout, youngTree, fullTree, blooming }
 enum WeatherState { sunny, cloudy, rainy }
 
-class SanctuaryProvider extends ChangeNotifier {
-  TreeStage _treeStage = TreeStage.seed;
-  WeatherState _weatherState = WeatherState.sunny;
+// --- Estado inmutable del Santuario ---
+// Agrupa las tres piezas de estado que antes vivían como campos privados
+// del ChangeNotifier, para poder exponerlas como un único `state` en Riverpod.
+class SanctuaryState {
+  final TreeStage treeStage;
+  final WeatherState weatherState;
+  final List<DebtModel> activeStones; // Obstáculos: deudas con saldo pendiente
 
-  // --- NUEVA PROPIEDAD PARA LAS PIEDRAS ---
-  // Almacena las deudas que aún tienen saldo pendiente[cite: 1, 8]
-  List<DebtModel> _activeStones = [];
+  const SanctuaryState({
+    this.treeStage = TreeStage.seed,
+    this.weatherState = WeatherState.sunny,
+    this.activeStones = const [],
+  });
 
+  SanctuaryState copyWith({
+    TreeStage? treeStage,
+    WeatherState? weatherState,
+    List<DebtModel>? activeStones,
+  }) {
+    return SanctuaryState(
+      treeStage: treeStage ?? this.treeStage,
+      weatherState: weatherState ?? this.weatherState,
+      activeStones: activeStones ?? this.activeStones,
+    );
+  }
+}
+
+final sanctuaryProvider = NotifierProvider<SanctuaryProvider, SanctuaryState>(
+  SanctuaryProvider.new,
+);
+
+class SanctuaryProvider extends Notifier<SanctuaryState> {
   // Getters para la UI
-  TreeStage get treeStage => _treeStage;
-  WeatherState get weatherState => _weatherState;
+  TreeStage get treeStage => state.treeStage;
+  WeatherState get weatherState => state.weatherState;
 
-  // NUEVO GETTER: Manda la señal de cuántas piedras dibujar
-  List<DebtModel> get activeStones => _activeStones;
-  int get stoneCount => _activeStones.length;
+  // Número de obstáculos activos.
+  List<DebtModel> get activeStones => state.activeStones;
+  int get stoneCount => state.activeStones.length;
 
-  // --- EL GRAN CABLEADO (ACTUALIZADO) ---
+  @override
+  SanctuaryState build() {
+    return const SanctuaryState();
+  }
+
+  // Actualiza el estado del Santuario con la información financiera.
   void updateFromProviders({
     required List<GoalModel> goals,
     required List<DebtModel> debts,
@@ -30,73 +61,76 @@ class SanctuaryProvider extends ChangeNotifier {
     required double totalExpenses,
   }) {
     // 1. Calculamos las piedras primero para que la UI sepa qué dibujar
-    _calculateStones(debts);
+    final newStones = _calculateStones(debts);
 
     // 2. Mantenemos tu lógica intacta para el árbol y el clima
-    _calculateTreeStage(goals, debts);
-    _calculateWeather(totalIncomes, totalExpenses);
+    final newTreeStage = _calculateTreeStage(goals, debts);
+    final newWeatherState = _calculateWeather(totalIncomes, totalExpenses);
 
-    notifyListeners();
+    state = state.copyWith(
+      activeStones: newStones,
+      treeStage: newTreeStage,
+      weatherState: newWeatherState,
+    );
   }
 
-  // NUEVA FUNCIÓN: Identifica deudas activas como obstáculos
-  void _calculateStones(List<DebtModel> debts) {
+  // Identifica deudas activas como obstáculos
+  List<DebtModel> _calculateStones(List<DebtModel> debts) {
     // Filtramos solo las deudas que tienen saldo pendiente[cite: 1, 8]
-    _activeStones = debts.where((d) => d.remainingAmount > 0).toList();
+    return debts.where((d) => d.remainingAmount > 0).toList();
   }
 
-  // 2. LÓGICA DEL ÁRBOL (VITALIDAD) - SE MANTIENE IGUAL
-  void _calculateTreeStage(List<GoalModel> goals, List<DebtModel> debts) {
-    int totalItems = goals.length + debts.length;
+  // Calcula la etapa de crecimiento del árbol.
+  TreeStage _calculateTreeStage(List<GoalModel> goals, List<DebtModel> debts) {
+    /*int*/ final totalItems = goals.length + debts.length;
     if (totalItems == 0) {
-      _treeStage = TreeStage.seed;
-      return;
+      return TreeStage.seed;
     }
 
     double totalProgress = 0;
 
     for (var goal in goals) {
+      if (goal.targetAmount <= 0) continue;
       totalProgress += (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
     }
     for (var debt in debts) {
       totalProgress += debt.paymentProgress;
     }
 
-    double averageProgress = totalProgress / totalItems;
+    /*double*/final averageProgress = totalProgress / totalItems;
 
     if (averageProgress < 0.15) {
-      _treeStage = TreeStage.seed;
+      return TreeStage.seed;
     } else if (averageProgress < 0.40) {
-      _treeStage = TreeStage.sprout;
+      return TreeStage.sprout;
     } else if (averageProgress < 0.70) {
-      _treeStage = TreeStage.youngTree;
+      return TreeStage.youngTree;
     } else if (averageProgress < 0.95) {
-      _treeStage = TreeStage.fullTree;
+      return TreeStage.fullTree;
     } else {
-      _treeStage = TreeStage.blooming;
+      return TreeStage.blooming;
     }
   }
 
-  // 3. LÓGICA DEL CLIMA - SE MANTIENE IGUAL[cite: 8]
-  void _calculateWeather(double income, double expenses) {
+  // Calcula el clima del Santuario.
+  WeatherState _calculateWeather(double income, double expenses) {
     if (income == 0) {
-      _weatherState = WeatherState.cloudy;
-      return;
+      return WeatherState.cloudy;
     }
 
-    double expenseRatio = expenses / income;
+    /*double*/ final expenseRatio = expenses / income;
 
     if (expenses > income) {
-      _weatherState = WeatherState.rainy;
+      return WeatherState.rainy;
     } else if (expenseRatio > 0.80) {
-      _weatherState = WeatherState.cloudy;
+      return WeatherState.cloudy;
     } else {
-      _weatherState = WeatherState.sunny;
+      return WeatherState.sunny;
     }
   }
 
   String get weatherDescription {
-    switch (_weatherState) {
+    switch (state.weatherState) {
       case WeatherState.sunny: return "¡Excelente gestión! El sol brilla en tu santuario.";
       case WeatherState.cloudy: return "Cuidado, tus gastos están aumentando. Se ven nubes.";
       case WeatherState.rainy: return "¡Alerta! Estás gastando más de lo que recibes.";
