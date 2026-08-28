@@ -1,162 +1,132 @@
-// Archivo: lib/main.dart
-import 'package:flutter/material.dart';
-/*
 import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-// 1. IMPORTANTE: Esto corrige el error de "FirebaseOptions cannot be null"
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app/app.dart';
 import 'firebase_options.dart';
 
-// Importaciones de Providers
-import 'providers/user_provider.dart';
-import 'providers/sanctuary_provider.dart';
-import 'providers/debt_provider.dart';
-import 'providers/GoalProvider.dart';
-import 'providers/transaction_provider.dart';
-import 'providers/lesson_provider.dart';
 
-// Importaciones de Pantallas
-import 'screens/Onboarding/onboarding.dart';
-import 'screens/auth/welcome_screen.dart';
-import 'screens/main_layout.dart';
-import 'screens/auth/setup_profile_screen.dart';// Añadido para absorber la lógica de AuthGate
-
-void main() async {
-  // Asegura que Flutter esté listo antes de iniciar Firebase
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. CORRECCIÓN DE FIREBASE: Aquí activamos las opciones para que no falle
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // 3. LÓGICA PARA DECIDIR LA PANTALLA INICIAL (Lo que buscabas)
-  final prefs = await SharedPreferences.getInstance();
-  final bool hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
-
-  Widget screenPrincipal;
-
-  if (!hasSeenOnboarding) {
-    // Si es la primera vez que abre la app
-    screenPrincipal = const OnboardingScreen();
-  } else {
-    // Ya vio el onboarding, verificamos Firebase Auth de forma sincrónica
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      // No hay sesión activa en el dispositivo
-      screenPrincipal = const WelcomeScreen();
-    } else {
-      // Hay sesión activa. Verificamos el estado del perfil.
-      if (currentUser.isAnonymous) {
-        // Invitados pasan directo
-        screenPrincipal = const MainLayoutScreen();
-      }else{
-        // Es cuenta registrada: Leemos Firestore una sola vez antes de arrancar
-        try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(currentUser.uid)
-              .get();
-          if (userDoc.exists && (userDoc.data()?['profile_completed'] ?? true)) {
-            // Perfil completo -> Al Layout Principal
-            screenPrincipal = const MainLayoutScreen();
-          }else{
-            // Perfil incompleto o documento no creado -> A completar perfil
-            screenPrincipal = const SetupProfileScreen();
-          }
-        } catch (e) {
-          // Fallback seguro: Si hay error de red al iniciar, pasamos al layout para no bloquear la app
-          screenPrincipal = const MainLayoutScreen();
-        }
-      }
-    }
-  }
-
+      options: DefaultFirebaseOptions.currentPlatform);
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => SanctuaryProvider()),
-
-        // Providers con dependencia de Usuario
-        ChangeNotifierProxyProvider<UserProvider, GoalProvider>(
-          create: (_) => GoalProvider(),
-          update: (_, userProvider, goalProvider) {
-            final uid = userProvider.currentUser?.uid;
-            if(uid != null) goalProvider!.listenToGoals(uid);
-            return goalProvider!;
-          },
-        ),
-        ChangeNotifierProxyProvider<UserProvider, DebtProvider>(
-          create: (_) => DebtProvider(),
-          update: (_, userProvider, debtProvider) {
-            final uid = userProvider.currentUser?.uid;
-            debtProvider!..updateUser(uid);
-            return debtProvider!;
-          },
-        ),
-        ChangeNotifierProxyProvider<UserProvider, TransactionProvider>(
-          create: (_) => TransactionProvider(),
-          update: (_, userProvider, transactionProvider) {
-            final uid = userProvider.currentUser?.uid;
-            if (uid != null) transactionProvider!..listenToTransactions(uid);
-            return transactionProvider!;
-          },
-        ),
-        ChangeNotifierProxyProvider<UserProvider, LessonProvider>(
-          create: (_) => LessonProvider(),
-          update: (_, userProvider, lessonProvider) {
-            final uid = userProvider.currentUser?.uid;
-            lessonProvider!..initializeUser(uid);
-            return lessonProvider!;
-          },
-        ),
-      ],
-      // 4. PASAMOS LA PANTALLA DECIDIDA A LA APP
-      child: MyApp(pantallaInicial: screenPrincipal),
-    ),
-  );
+      const ProviderScope(
+        child: FinavidApp(),
+      ));
 }
-
+/*
 class MyApp extends StatelessWidget {
-  final Widget pantallaInicial;
+  const MyApp({super.key});
 
-  const MyApp({super.key, required this.pantallaInicial});
-
+  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FinanzaGT',
-      debugShowCheckedModeBanner: false,
+      title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4A47F6),
-          primary: const Color(0xFF4A47F6),
-        ),
-        useMaterial3: true,
+        // This is the theme of your application.
+        //
+        // TRY THIS: Try running your application with "flutter run". You'll see
+        // the application has a purple toolbar. Then, without quitting the app,
+        // try changing the seedColor in the colorScheme below to Colors.green
+        // and then invoke "hot reload" (save your changes or press the "hot
+        // reload" button in a Flutter-supported IDE, or press "r" if you used
+        // the command line to start the app).
+        //
+        // Notice that the counter didn't reset back to zero; the application
+        // state is not lost during the reload. To reset the state, use hot
+        // restart instead.
+        //
+        // This works for code too, not just values: Most code changes can be
+        // tested with just a hot reload.
+        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      // 5. AQUÍ SE USA: Ya no es fijo OnboardingScreen, ahora es dinámico
-      home: pantallaInicial,
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }*/
 
-void main(){
-  runApp(const MyApp());
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+
+  // This widget is the home page of your application. It is stateful, meaning
+  // that it has a State object (defined below) that contains fields that affect
+  // how it looks.
+
+  // This class is the configuration for the state. It holds the values (in this
+  // case the title) provided by the parent (in this case the App widget) and
+  // used by the build method of the State. Fields in a Widget subclass are
+  // always marked "final".
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
 }
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+
+class _MyHomePageState extends State<MyHomePage> {
+  int _counter = 0;
+
+  void _incrementCounter() {
+    setState(() {
+      // This call to setState tells the Flutter framework that something has
+      // changed in this State, which causes it to rerun the build method below
+      // so that the display can reflect the updated values. If we changed
+      // _counter without calling setState(), then the build method would not be
+      // called again, and so nothing would appear to happen.
+      _counter++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text("Hola Mundo"),
-        )
+    // This method is rerun every time setState is called, for instance as done
+    // by the _incrementCounter method above.
+    //
+    // The Flutter framework has been optimized to make rerunning build methods
+    // fast, so that you can just rebuild anything that needs updating rather
+    // than having to individually change instances of widgets.
+    return Scaffold(
+      appBar: AppBar(
+        // TRY THIS: Try changing the color here to a specific color (to
+        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
+        // change color while the other colors stay the same.
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        // Here we take the value from the MyHomePage object that was created by
+        // the App.build method, and use it to set our appbar title.
+        title: Text(widget.title),
+      ),
+      body: Center(
+        // Center is a layout widget. It takes a single child and positions it
+        // in the middle of the parent.
+        child: Column(
+          // Column is also a layout widget. It takes a list of children and
+          // arranges them vertically. By default, it sizes itself to fit its
+          // children horizontally, and tries to be as tall as its parent.
+          //
+          // Column has various properties to control how it sizes itself and
+          // how it positions its children. Here we use mainAxisAlignment to
+          // center the children vertically; the main axis here is the vertical
+          // axis because Columns are vertical (the cross axis would be
+          // horizontal).
+          //
+          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
+          // action in the IDE, or press "p" in the console), to see the
+          // wireframe for each widget.
+          mainAxisAlignment: .center,
+          children: [
+            const Text('You have pushed the button this many times:'),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
       ),
     );
   }
